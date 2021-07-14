@@ -326,6 +326,7 @@ class Application(tk.Frame):
             write_to_tk_text_log(self.cmdlog_text, f"Warning: {warning}\n")
         if error is not None:
             write_to_tk_text_log(self.cmdlog_text, f"Error: {error}\n")
+        self.cmdlog_text.see("end")
 
     def clear_results_action(self):
         """Remove all result tabs."""
