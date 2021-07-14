@@ -19,7 +19,6 @@ import argparse
 import os
 import sqlite3
 from datetime import datetime
-import traceback
 import tkinter as tk
 import tkinter.ttk as ttk
 from tkinter.scrolledtext import ScrolledText
