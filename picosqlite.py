@@ -292,7 +292,8 @@ class Application(tk.Frame):
         return frame
 
     def run_query_action(self):
-        self.run_query(self.get_current_query())
+        with self.status_context("Running query..."):
+            self.run_query(self.get_current_query())
 
     def get_current_query(self):
         return self.query_text.get('1.0', 'end')
