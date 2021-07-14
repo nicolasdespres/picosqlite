@@ -79,7 +79,7 @@ class Application(tk.Frame):
         self.query_frame.columnconfigure(0, weight=1)
 
         ### Command log
-        self.cmdlog_text = ScrolledText(wrap="word", background="gray",
+        self.cmdlog_text = ScrolledText(wrap="word", background="lightgray",
                                         height=100)
         self.cmdlog_text.MAXLINES = self.COMMAND_LOG_HISTORY
         self.cmdlog_text.configure(state=tk.DISABLED)
