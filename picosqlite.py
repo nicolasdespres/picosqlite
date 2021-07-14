@@ -11,6 +11,7 @@ No dependency apart from python 3.9.
 # TODO(Nicolas Despres): Detailed value view
 # TODO(Nicolas Despres): Run SQL script
 # TODO(Nicolas Despres): Schema view
+# TODO(Nicolas Despres): Check whether we can lazily load data using yscrollcommand
 # TODO(Nicolas Despres): Schema diagram using dotty?
 
 import sys
