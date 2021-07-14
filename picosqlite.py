@@ -8,7 +8,6 @@ No dependency apart from python 3.9.
 # Documentation: https://tkdocs.com
 
 
-# TODO(Nicolas Despres): Stacked console and query text area
 # TODO(Nicolas Despres): Detailed value view
 # TODO(Nicolas Despres): Run SQL script
 # TODO(Nicolas Despres): Schema view
@@ -83,7 +82,6 @@ class Application(tk.Frame):
         self.cmdlog_text = ScrolledText(wrap="word", background="gray",
                                         height=100)
         self.cmdlog_text.MAXLINES = self.COMMAND_LOG_HISTORY
-        self.cmdlog_text.insert('1.0', '-- Command log\n')
         self.cmdlog_text.configure(state=tk.DISABLED)
         self.cmdlog_text.rowconfigure(0, weight=1)
         self.cmdlog_text.columnconfigure(0, weight=1)
@@ -299,14 +297,16 @@ class Application(tk.Frame):
         return self.query_text.get('1.0', 'end')
 
     def run_query(self, query):
+        started_at = datetime.now()
+        self.log(f"\n-- Run at {started_at}\n")
+        self.log(query)
         try:
             cursor = self.db.execute(query)
         except sqlite3.Error as e:
-            self.log_query(query, error=e)
+            self.log(f"Error: {e}\n")
         except sqlite3.Warning as e:
-            self.log_query(query, warning=e)
+            self.log(f"Warning: {warning}\n")
         else:
-            self.log_query(query)
             if cursor.description is None: # No data to fetch.
                 self.refresh_action()
             else:
@@ -315,17 +315,13 @@ class Application(tk.Frame):
                                    text=f"*Result-{self.result_view_count}")
                 self.result_view_count += 1
                 self.file_menu.entryconfigure("Clear results", state=tk.NORMAL)
+            stopped_at = datetime.now()
+            self.log(f"-- duration: {stopped_at - started_at}")
 
-    def log_query(self, query, error=None, warning=None):
-        write_to_tk_text_log(self.cmdlog_text,
-                             f"\n-- Run at {datetime.now()}\n")
-        if not query.endswith("\n"):
-            query += "\n"
-        write_to_tk_text_log(self.cmdlog_text, query)
-        if warning is not None:
-            write_to_tk_text_log(self.cmdlog_text, f"Warning: {warning}\n")
-        if error is not None:
-            write_to_tk_text_log(self.cmdlog_text, f"Error: {error}\n")
+    def log(self, msg):
+        if not msg.endswith("\n"):
+            msg += "\n"
+        write_to_tk_text_log(self.cmdlog_text, msg)
         self.cmdlog_text.see("end")
 
     def clear_results_action(self):
