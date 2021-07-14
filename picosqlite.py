@@ -43,42 +43,53 @@ class Application(tk.Frame):
             self.open_db(db_path)
 
     def init_widget(self):
-        ### Status bar
+        self.init_statusbar()
+        self.pane = ttk.Panedwindow(self, orient=tk.VERTICAL)
+        # Tables notebook
+        self.tables = ttk.Notebook(self.pane, height=400)
+        # Bottom notebook
+        self.bottom_nb = ttk.Notebook(self.pane)
+        # self.console = tk.Label(text="Console", background="cyan")
+        ## Console
+        self.init_console()
+        ## Detailed view
+        self.detailed_view = tk.Frame(self)
+        self.bottom_nb.add(self.console, text="Console")
+        self.bottom_nb.add(self.detailed_view, text="Details")
+        self.pane.add(self.tables)
+        self.pane.add(self.bottom_nb)
+
+    def init_statusbar(self):
         self.statusbar = tk.Label(self, anchor="w")
         self._status_stack = []
         self.push_status_text("Ready to open a database.")
 
-        self.pane = ttk.Panedwindow(self, orient=tk.VERTICAL)
-
-        ### Tables
-        self.tables = ttk.Notebook(self.pane, height=500)
-
-        ### Console
-        self.console = ttk.Notebook(self.pane)
-        # self.console = tk.Label(text="Console", background="cyan")
+    def init_console(self):
+        self.console = ttk.Panedwindow(self, orient=tk.VERTICAL)
 
         ### Query
         self.query_frame = tk.Frame()
         self.query_text = ScrolledText(self.query_frame, wrap="word")
+        self.run_query_bt = tk.Button(self.query_frame, text="Run",
+                                      command=self.run_query_action)
         self.disable_query()
         self.query_frame.grid(column=0, row=0, sticky="nswe")
         self.query_text.grid(column=0, row=0, sticky="nswe")
+        self.run_query_bt.grid(column=1, row=0, sticky="nswe")
         self.query_frame.rowconfigure(0, weight=1)
         self.query_frame.columnconfigure(0, weight=1)
 
         ### Command log
-        self.cmdlog_text = ScrolledText(wrap="word", background="gray")
+        self.cmdlog_text = ScrolledText(wrap="word", background="gray",
+                                        height=100)
         self.cmdlog_text.MAXLINES = self.COMMAND_LOG_HISTORY
         self.cmdlog_text.insert('1.0', '-- Command log\n')
         self.cmdlog_text.configure(state=tk.DISABLED)
-        # self.cmdlog_text.rowconfigure(0, weight=1)
-        # self.cmdlog_text.columnconfigure(0, weight=1)
+        self.cmdlog_text.rowconfigure(0, weight=1)
+        self.cmdlog_text.columnconfigure(0, weight=1)
 
-        self.console.add(self.query_frame, text="Query")
-        self.console.add(self.cmdlog_text, text="Log")
-
-        self.pane.add(self.tables)
-        self.pane.add(self.console)
+        self.console.add(self.cmdlog_text, weight=4)
+        self.console.add(self.query_frame, weight=1)
 
     def init_menu(self):
         # Doc: https://tkdocs.com/tutorial/menus.html
@@ -114,31 +125,14 @@ class Application(tk.Frame):
     def init_layout(self):
         # Doc: https://tkdocs.com/tutorial/grid.html#resize
         self.grid(column=0, row=0, sticky="nsew")
-        # self.menubar.grid(row=0, sticky="nsew")
-
-        # self.cmdlog_text.grid(column=0, row=4, rowspan=2,
-        #                      sticky="nswe")
-        # self.query_text.grid(column=0, row=6, rowspan=1,
-        #                      sticky="nswe")
-
         self.pane.grid(column=0, row=0, sticky="nsew")
-        self.statusbar.grid(column=0, row=1,
-                            sticky="swe")
-
-        # Do not grid-configure member of a pane since user can resize it.
-        # self.tables.grid(column=0, row=0, sticky="nwe")
-        # self.console.grid(column=0, row=1, sticky="swe")
-
+        self.statusbar.grid(column=0, row=1, sticky="swe")
         self.master.rowconfigure(0, weight=1)
         self.master.columnconfigure(0, weight=1)
         self.columnconfigure(0, weight=1)
         self.rowconfigure(0, weight=1)
         self.pane.rowconfigure(0, weight=1)
         self.pane.columnconfigure(0, weight=1)
-        # self.tables.rowconfigure(0, weight=1)
-        # self.tables.columnconfigure(0, weight=1)
-        # self.console.rowconfigure(0, weight=1)
-        # self.console.columnconfigure(0, weight=1)
 
     def init_logic(self):
         self.db = None
@@ -237,15 +231,13 @@ class Application(tk.Frame):
 
     def enable_query(self):
         self.query_text['state'] = tk.NORMAL
-        # self.query_text.delete("1.0", tk.END)
-        # self.query_text.insert('1.0', '-- Insert a query\n')
         self.query_text['background'] = "white"
+        self.run_query_bt['state'] = tk.NORMAL
 
     def disable_query(self):
-        # self.query_text.delete("1.0", tk.END)
-        # self.query_text.insert('1.0', '-- Open a database to run query on it.')
         self.query_text['background'] = "gray"
         self.query_text['state'] = tk.DISABLED
+        self.run_query_bt['state'] = tk.DISABLED
 
     def refresh_action(self):
         self.unload_tables()
