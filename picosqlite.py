@@ -8,7 +8,6 @@ No dependency apart from python 3.9.
 # Documentation: https://tkdocs.com
 
 
-# TODO(Nicolas Despres): Detailed value view
 # TODO(Nicolas Despres): Run SQL script
 # TODO(Nicolas Despres): Schema view
 # TODO(Nicolas Despres): Check whether we can lazily load data using yscrollcommand
@@ -47,13 +46,11 @@ class Application(tk.Frame):
         self.pane = ttk.Panedwindow(self, orient=tk.VERTICAL)
         # Tables notebook
         self.tables = ttk.Notebook(self.pane, height=400)
+        self.tables.bind("<<NotebookTabChanged>>", self.on_view_table_changed)
         # Bottom notebook
         self.bottom_nb = ttk.Notebook(self.pane)
-        # self.console = tk.Label(text="Console", background="cyan")
-        ## Console
         self.init_console()
-        ## Detailed view
-        self.detailed_view = tk.Frame(self)
+        self.init_detailed_view()
         self.bottom_nb.add(self.console, text="Console")
         self.bottom_nb.add(self.detailed_view, text="Details")
         self.pane.add(self.tables)
@@ -91,6 +88,34 @@ class Application(tk.Frame):
 
         self.console.add(self.cmdlog_text, weight=4)
         self.console.add(self.query_frame, weight=1)
+
+    def init_detailed_view(self):
+        self.detailed_view = ttk.PanedWindow(self, orient=tk.HORIZONTAL)
+        self.detailed_view._current_tree = None
+        self.detailed_view._current_item_id = None
+
+        self.columns_frame = tk.Frame(self.detailed_view)
+        self.columns_list = tk.StringVar(value=[])
+        self.columns_listbox = tk.Listbox(self.columns_frame,
+                                          selectmode='single',
+                                          listvariable=self.columns_list,
+                                          width=20)
+        self.columns_listbox.bind("<<ListboxSelect>>",
+                                  self.on_view_column_changed)
+        ys = ttk.Scrollbar(self.columns_frame, orient='vertical',
+                           command=self.columns_listbox.yview)
+        self.columns_listbox['yscrollcommand'] = ys.set
+        self.columns_listbox.grid(column=0, row=0, sticky="nswe")
+        ys.grid(column=1, row=0, sticky="nse")
+        self.columns_frame.rowconfigure(0, weight=1)
+        self.columns_frame.columnconfigure(0, weight=1)
+
+        self.show_text = ScrolledText(wrap="char", background="lightgray")
+        self.show_text.configure(state=tk.DISABLED)
+        self.show_text.grid(column=2, row=0, sticky="nswe")
+
+        self.detailed_view.add(self.columns_frame, weight=1)
+        self.detailed_view.add(self.show_text, weight=4)
 
     def init_menu(self):
         # Doc: https://tkdocs.com/tutorial/menus.html
@@ -266,7 +291,8 @@ class Application(tk.Frame):
 
     def create_table_view(self, cursor):
         frame = tk.Frame()
-        tree = ttk.Treeview(frame, show="headings")
+        tree = ttk.Treeview(frame, show="headings", selectmode='browse')
+        tree._selected_column = 0
         ### Scrollbars
         ys = ttk.Scrollbar(frame, orient='vertical', command=tree.yview)
         xs = ttk.Scrollbar(frame, orient='horizontal', command=tree.xview)
@@ -277,6 +303,7 @@ class Application(tk.Frame):
         tree.grid(column=0, row=0, sticky="nsew")
         ys.grid(column=1, row=0, rowspan=2, sticky="nsw")
         xs.grid(column=0, row=1, columnspan=2, sticky="ews")
+        tree.bind("<<TreeviewSelect>>", self.on_view_row_changed)
         ### Fetch
         column_names = tuple(t[0] for t in cursor.description)
         tree['columns'] = column_names
@@ -291,6 +318,63 @@ class Application(tk.Frame):
                         anchor=format_row.anchor(i))
             tree.heading(column_name, text=column_name)
         return frame
+
+    def on_view_table_changed(self, event):
+        tables_notebook = event.widget
+        selected_tab = tables_notebook.select()
+        tree = tables_notebook.nametowidget(selected_tab + ".!treeview")
+        self.update_shown_row(tree)
+
+    def on_view_row_changed(self, event):
+        tree = event.widget
+        self.update_shown_row(tree)
+
+    def update_shown_row(self, tree):
+        item_id = tree.focus()
+        if not item_id:
+            # Reset shown value
+            self.detailed_view._current_tree = None
+            self.detailed_view._current_item_id = None
+            tree._selected_column = 0
+            self.columns_list.set([])
+            self.show_value('')
+            return
+        if self.detailed_view._current_tree is not tree:
+            self.columns_list.set(tree['columns'])
+            self.detailed_view._current_tree = tree
+            self.detailed_view._current_item_id = item_id
+            self.columns_listbox.selection_clear(0, tk.END)
+            self.columns_listbox.selection_set(tree._selected_column)
+            self.update_shown_column(tree, item_id)
+        if self.detailed_view._current_item_id != item_id:
+            self.detailed_view._current_item_id = item_id
+            self.update_shown_column(tree, item_id)
+
+    def on_view_column_changed(self, event):
+        tree = self.detailed_view._current_tree
+        if tree is None:
+            return
+        item_id = self.detailed_view._current_item_id
+        if item_id is None:
+            return
+        self.update_shown_column(tree, item_id)
+
+    def update_shown_column(self, tree, item_id):
+        selection = self.columns_listbox.curselection()
+        if not selection:
+            return
+        selected_item = selection[0]
+        tree._selected_column = selected_item
+        values = tree.item(item_id, option="values")
+        if not values:
+            return
+        value = values[selected_item]
+        self.show_value(unmangle_value(value))
+
+    def show_value(self, value):
+        self.show_text["state"] = tk.NORMAL
+        set_text_widget_content(self.show_text, value)
+        self.show_text["state"] = tk.DISABLED
 
     def run_query_action(self):
         with self.status_context("Running query..."):
@@ -345,6 +429,10 @@ def write_to_tk_text_log(log, msg, tags=()):
     log.insert('end', msg, tags)
     log['state'] = tk.DISABLED
 
+def set_text_widget_content(text_widget, content, tags=None):
+    text_widget.delete('1.0', tk.END)
+    text_widget.insert('1.0', content, tags)
+
 class RowFormatter:
 
     def __init__(self, column_names):
@@ -385,9 +473,15 @@ def format_row_values(row):
 
 def format_row_value(v):
     if isinstance(v, str):
-        return repr(v)[1:-1]
+        return mangle_value(v)
     else:
         return v
+
+def mangle_value(v):
+    return repr(v)[1:-1]
+
+def unmangle_value(v):
+    return eval(f'"""{v}"""')
 
 def list_tables(db):
     cursor = db.execute(
