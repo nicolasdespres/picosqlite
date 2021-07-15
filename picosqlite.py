@@ -306,9 +306,9 @@ class Application(tk.Frame):
         try:
             cursor = self.db.execute(query)
         except sqlite3.Error as e:
-            self.log(f"Error: {e}\n", tag=("error",))
+            self.log(f"Error: {e}\n", tags=("error",))
         except sqlite3.Warning as e:
-            self.log(f"Warning: {e}\n", tag=("warning",))
+            self.log(f"Warning: {e}\n", tags=("warning",))
         else:
             if cursor.description is None: # No data to fetch.
                 self.refresh_action()
@@ -321,10 +321,10 @@ class Application(tk.Frame):
             stopped_at = datetime.now()
             self.log(f"-- duration: {stopped_at - started_at}")
 
-    def log(self, msg, tag=()):
+    def log(self, msg, tags=()):
         if not msg.endswith("\n"):
             msg += "\n"
-        write_to_tk_text_log(self.cmdlog_text, msg, tag=tag)
+        write_to_tk_text_log(self.cmdlog_text, msg, tags=tags)
         self.cmdlog_text.see("end")
 
     def clear_results_action(self):
@@ -335,14 +335,14 @@ class Application(tk.Frame):
         self.result_view_count = 0
         self.file_menu.entryconfigure("Clear results", state=tk.DISABLED)
 
-def write_to_tk_text_log(log, msg, tag=()):
+def write_to_tk_text_log(log, msg, tags=()):
     numlines = int(log.index('end - 1 line').split('.')[0])
     log['state'] = tk.NORMAL
     if numlines >= log.MAXLINES:
         log.delete('1.0', f'{log.MAXLINES - numlines}.0')
     # if log.index('end-1c') != '1.0':
     #     log.insert('end', '\n')
-    log.insert('end', msg, tag)
+    log.insert('end', msg, tags)
     log['state'] = tk.DISABLED
 
 class RowFormatter:
