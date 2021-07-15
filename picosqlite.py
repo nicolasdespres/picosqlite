@@ -283,7 +283,7 @@ class Application(tk.Frame):
         ### Insert rows
         format_row = RowFormatter(column_names)
         for row in cursor:
-            tree.insert('', row[0], values=format_row(row))
+            tree.insert('', 'end', values=format_row(row))
         ### Configure column
         for i, column_name in enumerate(column_names):
             tree.column(column_name,
