@@ -596,8 +596,10 @@ class RowFormatter:
         self.maxsizes = [0] * self.num_columns
         self._update_maxsize(self.column_names)
         self.types = [type(None)] * self.num_columns
+        self.has_formatted = False
 
     def __call__(self, row):
+        self.has_formatted = True
         values = format_row_values(row)
         self._update_types(values)
         self._update_maxsize(values)
@@ -625,6 +627,8 @@ class RowFormatter:
             return "w"
 
     def configure_columns(self, tree):
+        if not self.has_formatted:
+            return
         for i, (column_id, column_name) in enumerate(zip(self.column_ids, self.column_names)):
             tree.column(column_id,
                         width=min(self.maxsizes[i], 512),
