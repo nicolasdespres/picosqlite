@@ -22,6 +22,7 @@ import tkinter.ttk as ttk
 from tkinter.scrolledtext import ScrolledText
 from tkinter.filedialog import askopenfilename
 from tkinter.messagebox import askyesno
+from tkinter.font import nametofont
 from contextlib import contextmanager
 
 
@@ -489,6 +490,7 @@ class RowFormatter:
         self.column_names = column_names
         self.num_columns = len(self.column_names)
         self.maxsizes = [0] * self.num_columns
+        self._tree_font = nametofont(ttk.Style().lookup("Treeview", "font"))
         self._update_maxsize(column_names)
         self.types = [None] * self.num_columns
 
@@ -501,11 +503,12 @@ class RowFormatter:
     def _update_maxsize(self, values):
         for i, v in enumerate(values):
             if isinstance(v, str):
-                s = len(v)
+                text = v
             elif isinstance(v, int):
-                s = len(str(v))
-            if s > self.maxsizes[i]:
-                self.maxsizes[i] = s
+                text = str(v)
+            width = self._tree_font.measure(text) + 10
+            if width > self.maxsizes[i]:
+                self.maxsizes[i] = width
 
     def _update_types(self, values):
         for i, v in enumerate(values):
@@ -521,7 +524,7 @@ class RowFormatter:
     def configure_columns(self, tree):
         for i, column_name in enumerate(self.column_names):
             tree.column(column_name,
-                        width=self.maxsizes[i] * 8,
+                        width=min(self.maxsizes[i], 512),
                         anchor=self.anchor(i),
                         stretch=False)
             tree.heading(column_name, text=column_name)
