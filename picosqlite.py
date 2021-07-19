@@ -559,7 +559,7 @@ class RowFormatter:
         self.maxsizes = [0] * self.num_columns
         self._tree_font = nametofont(ttk.Style().lookup("Treeview", "font"))
         self._update_maxsize(column_names)
-        self.types = [None] * self.num_columns
+        self.types = [type(None)] * self.num_columns
 
     def __call__(self, row):
         values = format_row_values(row)
