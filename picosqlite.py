@@ -311,12 +311,7 @@ class Application(tk.Frame):
         format_row = RowFormatter(column_names)
         for row in cursor:
             tree.insert('', 'end', values=format_row(row))
-        ### Configure column
-        for i, column_name in enumerate(column_names):
-            tree.column(column_name,
-                        width=format_row.maxsizes[i] * 8,
-                        anchor=format_row.anchor(i))
-            tree.heading(column_name, text=column_name)
+        format_row.configure_columns(tree)
         return frame
 
     def on_view_table_changed(self, event):
@@ -467,6 +462,14 @@ class RowFormatter:
             return "e"
         else:
             return "w"
+
+    def configure_columns(self, tree):
+        for i, column_name in enumerate(self.column_names):
+            tree.column(column_name,
+                        width=self.maxsizes[i] * 8,
+                        anchor=self.anchor(i),
+                        stretch=False)
+            tree.heading(column_name, text=column_name)
 
 def format_row_values(row):
     return tuple(format_row_value(i) for i in row)
