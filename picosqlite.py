@@ -10,6 +10,9 @@ No dependency apart from python 3.9.
 
 # TODO(Nicolas Despres): Schema diagram using dotty?
 
+__version__ = "git"
+
+
 import sys
 import argparse
 import os
@@ -21,6 +24,7 @@ from tkinter.scrolledtext import ScrolledText
 from tkinter.filedialog import askopenfilename
 from tkinter.messagebox import askyesno
 from tkinter.messagebox import showerror
+from tkinter.messagebox import Message
 from tkinter.font import nametofont
 from contextlib import contextmanager
 
@@ -226,7 +230,11 @@ class Application(tk.Frame):
         self.result_view_count = 0
 
     def about_action(self):
-        pass
+        dlg = Message(self,
+                      title="About",
+                      message=f"Pico SQLite version {__version__}\n"
+                      "Copyright © Nicolas Desprès from 2021")
+        dlg.show()
 
     def exit_action(self):
         sys.exit()
