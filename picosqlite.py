@@ -510,6 +510,7 @@ class Application(tk.Frame):
                                    text=f"*Result-{self.result_view_count}")
                 self.result_view_count += 1
                 self.db_menu.entryconfigure("Clear results", state=tk.NORMAL)
+                self.tables.select(0)
             stopped_at = datetime.now()
             self.log(f"-- duration: {stopped_at - started_at}")
 
