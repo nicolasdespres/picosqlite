@@ -63,7 +63,7 @@ class SchemaFrame(tk.Frame):
         self._tree.grid(column=0, row=0, sticky="nsew")
         self._ys.grid(column=1, row=0, rowspan=2, sticky="nsw")
         self._xs.grid(column=0, row=1, columnspan=2, sticky="ews")
-        self._format_row = RowFormatter(self.COLUMNS)
+        self._format_row = RowFormatter(self.COLUMNS, self.COLUMNS)
 
     @property
     def _db(self):
@@ -387,14 +387,15 @@ class Application(tk.Frame):
 
     def create_table_view(self, cursor):
         frame = tk.Frame()
-        column_names = tuple(t[0] for t in cursor.description)
+        column_ids, column_names = get_column_ids(cursor)
         tree = ttk.Treeview(frame, show="headings", selectmode='browse',
-                            columns=column_names)
+                            columns=column_ids)
         tree._selected_column = 0
         ### Scrollbars
         ys = ttk.Scrollbar(frame, orient='vertical', command=tree.yview)
         xs = ttk.Scrollbar(frame, orient='horizontal', command=tree.xview)
-        tree['yscrollcommand'] = self.get_lazi_loader(cursor, tree, ys)
+        format_row = RowFormatter(column_ids, column_names)
+        tree['yscrollcommand'] = self.get_lazi_loader(cursor, format_row, tree, ys)
         tree['xscrollcommand'] = xs.set
         frame.rowconfigure(0, weight=1)
         frame.columnconfigure(0, weight=1)
@@ -404,13 +405,13 @@ class Application(tk.Frame):
         tree.bind("<<TreeviewSelect>>", self.on_view_row_changed)
         return frame
 
-    def get_lazi_loader(self, cursor, tree, yscrollbar):
+    def get_lazi_loader(self, cursor, format_row, tree, yscrollbar):
         # TODO(Nicolas Despres): Discard loaded item to free memory and refetch
         #  using SELECT OFFSET. Can be done for regular table view but not
         #  for result view.
         ### Fetch the first hundred rows.
         def fetch_more():
-            format_row = RowFormatter(tree['columns'])
+            format_row.reset()
             for row in head(cursor, self.DATA_VIEW_PREFETCH_LIMIT):
                 tree.insert('', 'end', values=format_row(row))
             format_row.configure_columns(tree)
@@ -561,14 +562,39 @@ def set_text_widget_content(text_widget, content, tags=None):
     text_widget.delete('1.0', tk.END)
     text_widget.insert('1.0', content, tags)
 
+def get_column_id(name, seen):
+    new_name = name
+    i = 1
+    while new_name in seen:
+        new_name = f"{name}<{i}>"
+        i += 1
+    seen.add(new_name)
+    return new_name
+
+def get_column_ids(cursor):
+    """Compute *unique* column name from the cursor description."""
+    seen = set()
+    ids = []
+    names = []
+    for t in cursor.description:
+        name = t[0]
+        id = get_column_id(name, seen)
+        names.append(name)
+        ids.append(id)
+    return ids, names
+
 class RowFormatter:
 
-    def __init__(self, column_names):
+    def __init__(self, column_ids, column_names):
+        self.column_ids = column_ids
         self.column_names = column_names
+        self._tree_font = nametofont(ttk.Style().lookup("Treeview", "font"))
+        self.reset()
+
+    def reset(self):
         self.num_columns = len(self.column_names)
         self.maxsizes = [0] * self.num_columns
-        self._tree_font = nametofont(ttk.Style().lookup("Treeview", "font"))
-        self._update_maxsize(column_names)
+        self._update_maxsize(self.column_names)
         self.types = [type(None)] * self.num_columns
 
     def __call__(self, row):
@@ -599,12 +625,12 @@ class RowFormatter:
             return "w"
 
     def configure_columns(self, tree):
-        for i, column_name in enumerate(self.column_names):
-            tree.column(column_name,
+        for i, (column_id, column_name) in enumerate(zip(self.column_ids, self.column_names)):
+            tree.column(column_id,
                         width=min(self.maxsizes[i], 512),
                         anchor=self.anchor(i),
                         stretch=False)
-            tree.heading(column_name, text=column_name)
+            tree.heading(column_id, text=column_name)
 
 def format_row_values(row):
     return tuple(format_row_value(i) for i in row)
