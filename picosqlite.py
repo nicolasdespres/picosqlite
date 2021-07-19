@@ -38,6 +38,11 @@ def head(it, n=100):
             break
         n -= 1
 
+def get_selected_tab_index(notebook):
+    widget_name = notebook.select()
+    tabs = notebook.tabs()
+    return notebook.index(widget_name)
+
 class SchemaFrame(tk.Frame):
 
     COLUMNS = ("name", "type", "not null", "default", "PK")
@@ -336,8 +341,12 @@ class Application(tk.Frame):
         self.run_query_bt['state'] = tk.DISABLED
 
     def refresh_action(self):
+        selected_tab_index = get_selected_tab_index(self.tables)
         self.unload_tables()
         self.load_tables()
+        if selected_tab_index is not None \
+           and 0 <= selected_tab_index <= self.tables.index('end'):
+            self.tables.select(selected_tab_index)
 
     def is_result_view(self, tab_text):
         return tab_text.startswith("*")
