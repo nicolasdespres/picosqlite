@@ -173,25 +173,25 @@ class Application(tk.Frame):
         # Set it as the menu of this app top-level window
         self.master.config(menu=self.menubar)
 
-        self.file_menu = tk.Menu(self.menubar)
-        self.menubar.add_cascade(label="File", menu=self.file_menu)
-        self.file_menu.add_command(label="Open...", command=self.open_action,
-                                   accelerator="F2")
-        self.file_menu.add_command(label="Close",
-                                   command=self.close_action,
-                                   state=tk.DISABLED)
-        self.file_menu.add_separator()
-        self.file_menu.add_command(label="Refresh", command=self.refresh_action,
-                                   accelerator="F5")
-        self.file_menu.add_command(label="Run query",
-                                   command=self.run_query_action,
-                                   accelerator="F3")
-        self.file_menu.add_command(label="Clear results",
-                                   command=self.clear_results_action,
-                                   accelerator="F7",
-                                   state=tk.DISABLED)
-        self.file_menu.add_separator()
-        self.file_menu.add_command(label="Exit", command=self.exit_action)
+        self.db_menu = tk.Menu(self.menubar)
+        self.menubar.add_cascade(label="Database", menu=self.db_menu)
+        self.db_menu.add_command(label="Open...", command=self.open_action,
+                                 accelerator="F2")
+        self.db_menu.add_command(label="Close",
+                                 command=self.close_action,
+                                 state=tk.DISABLED)
+        self.db_menu.add_separator()
+        self.db_menu.add_command(label="Refresh", command=self.refresh_action,
+                                 accelerator="F5")
+        self.db_menu.add_command(label="Run query",
+                                 command=self.run_query_action,
+                                 accelerator="F3")
+        self.db_menu.add_command(label="Clear results",
+                                 command=self.clear_results_action,
+                                 accelerator="F7",
+                                 state=tk.DISABLED)
+        self.db_menu.add_separator()
+        self.db_menu.add_command(label="Exit", command=self.exit_action)
 
         self.help_menu = tk.Menu(self.menubar)
         self.menubar.add_cascade(label="Help", menu=self.help_menu)
@@ -262,9 +262,9 @@ class Application(tk.Frame):
             raise RuntimeError(f"A database is already opened {self.current_db_filename}")
         self.db = sqlite3.connect(db_filename)
         self.load_tables()
-        self.file_menu.entryconfigure("Close", state=tk.NORMAL)
-        self.file_menu.entryconfigure("Refresh", state=tk.NORMAL)
-        self.file_menu.entryconfigure("Run query", state=tk.NORMAL)
+        self.db_menu.entryconfigure("Close", state=tk.NORMAL)
+        self.db_menu.entryconfigure("Refresh", state=tk.NORMAL)
+        self.db_menu.entryconfigure("Run query", state=tk.NORMAL)
         self.enable_query()
         self.current_db_filename = db_filename
         self.master.title(f"{self.NAME} - {db_filename}")
@@ -277,9 +277,9 @@ class Application(tk.Frame):
         self.db = None
         self.master.title(self.NAME)
         self.current_db_filename = None
-        self.file_menu.entryconfigure("Close", state=tk.DISABLED)
-        self.file_menu.entryconfigure("Refresh", state=tk.DISABLED)
-        self.file_menu.entryconfigure("Run query", state=tk.DISABLED)
+        self.db_menu.entryconfigure("Close", state=tk.DISABLED)
+        self.db_menu.entryconfigure("Refresh", state=tk.DISABLED)
+        self.db_menu.entryconfigure("Run query", state=tk.DISABLED)
         self.disable_query()
         self.pop_status_text()
         self.unload_tables()
@@ -452,7 +452,7 @@ class Application(tk.Frame):
                 self.tables.insert(0, result_table,
                                    text=f"*Result-{self.result_view_count}")
                 self.result_view_count += 1
-                self.file_menu.entryconfigure("Clear results", state=tk.NORMAL)
+                self.db_menu.entryconfigure("Clear results", state=tk.NORMAL)
             stopped_at = datetime.now()
             self.log(f"-- duration: {stopped_at - started_at}")
 
@@ -468,7 +468,7 @@ class Application(tk.Frame):
             if self.is_result_view_tab(tab_idx):
                 self.tables.forget(tab_idx)
         self.result_view_count = 0
-        self.file_menu.entryconfigure("Clear results", state=tk.DISABLED)
+        self.db_menu.entryconfigure("Clear results", state=tk.DISABLED)
 
 def write_to_tk_text_log(log, msg, tags=()):
     numlines = int(log.index('end - 1 line').split('.')[0])
