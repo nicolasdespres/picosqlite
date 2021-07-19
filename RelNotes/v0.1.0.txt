@@ -1,0 +1,8 @@
+First release.
+
+Main features:
+- table view
+- schema view
+- console to run query
+- show query results
+- possibility to run a script

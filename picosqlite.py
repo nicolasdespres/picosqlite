@@ -10,7 +10,8 @@ No dependency apart from python 3.9.
 
 # TODO(Nicolas Despres): Schema diagram using dotty?
 
-__version__ = "git"
+# WARNING: use single-quote for this string (release script relies on it)!
+__version__ = 'git'
 
 
 import sys
