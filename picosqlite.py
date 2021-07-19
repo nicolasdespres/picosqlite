@@ -8,7 +8,6 @@ No dependency apart from python 3.9.
 # Documentation: https://tkdocs.com
 
 
-# TODO(Nicolas Despres): Check whether we can lazily load data using yscrollcommand
 # TODO(Nicolas Despres): Schema diagram using dotty?
 
 import sys
@@ -25,6 +24,14 @@ from tkinter.messagebox import showerror
 from tkinter.font import nametofont
 from contextlib import contextmanager
 
+
+def head(it, n=100):
+    while n > 0:
+        try:
+            yield next(it)
+        except StopIteration:
+            break
+        n -= 1
 
 class SchemaFrame(tk.Frame):
 
@@ -77,7 +84,7 @@ class Application(tk.Frame):
 
     NAME = "Pico SQL"
     COMMAND_LOG_HISTORY = 1000
-    DATA_VIEW_LIMIT = 1000
+    DATA_VIEW_PREFETCH_LIMIT = 100
 
     def __init__(self, db_path=None, master=None):
         super().__init__(master)
@@ -357,17 +364,19 @@ class Application(tk.Frame):
 
     def create_table_view_for_table(self, table_name):
         cursor = self.db.execute(
-            f"SELECT * FROM {table_name} LIMIT {self.DATA_VIEW_LIMIT}")
+            f"SELECT * FROM {table_name}")
         return self.create_table_view(cursor)
 
     def create_table_view(self, cursor):
         frame = tk.Frame()
-        tree = ttk.Treeview(frame, show="headings", selectmode='browse')
+        column_names = tuple(t[0] for t in cursor.description)
+        tree = ttk.Treeview(frame, show="headings", selectmode='browse',
+                            columns=column_names)
         tree._selected_column = 0
         ### Scrollbars
         ys = ttk.Scrollbar(frame, orient='vertical', command=tree.yview)
         xs = ttk.Scrollbar(frame, orient='horizontal', command=tree.xview)
-        tree['yscrollcommand'] = ys.set
+        tree['yscrollcommand'] = self.get_lazi_loader(cursor, tree, ys)
         tree['xscrollcommand'] = xs.set
         frame.rowconfigure(0, weight=1)
         frame.columnconfigure(0, weight=1)
@@ -375,15 +384,26 @@ class Application(tk.Frame):
         ys.grid(column=1, row=0, rowspan=2, sticky="nsw")
         xs.grid(column=0, row=1, columnspan=2, sticky="ews")
         tree.bind("<<TreeviewSelect>>", self.on_view_row_changed)
-        ### Fetch
-        column_names = tuple(t[0] for t in cursor.description)
-        tree['columns'] = column_names
-        ### Insert rows
-        format_row = RowFormatter(column_names)
-        for row in cursor:
-            tree.insert('', 'end', values=format_row(row))
-        format_row.configure_columns(tree)
         return frame
+
+    def get_lazi_loader(self, cursor, tree, yscrollbar):
+        # TODO(Nicolas Despres): Discard loaded item to free memory and refetch
+        #  using SELECT OFFSET. Can be done for regular table view but not
+        #  for result view.
+        ### Fetch the first hundred rows.
+        def fetch_more():
+            format_row = RowFormatter(tree['columns'])
+            for row in head(cursor, self.DATA_VIEW_PREFETCH_LIMIT):
+                tree.insert('', 'end', values=format_row(row))
+            format_row.configure_columns(tree)
+        fetch_more()
+        ### Lazily fetch item from the cursor as user scroll down the view.
+        def lazi_load(begin_index, end_index):
+            # print(f"asked to load item between {begin_index} and {end_index}")
+            if end_index == "1.0":
+                fetch_more()
+            return yscrollbar.set(begin_index, end_index)
+        return lazi_load
 
     def on_view_table_changed(self, event):
         tables_notebook = event.widget
