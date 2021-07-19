@@ -8,7 +8,6 @@ No dependency apart from python 3.9.
 # Documentation: https://tkdocs.com
 
 
-# TODO(Nicolas Despres): Run SQL script
 # TODO(Nicolas Despres): Check whether we can lazily load data using yscrollcommand
 # TODO(Nicolas Despres): Schema diagram using dotty?
 
@@ -22,6 +21,7 @@ import tkinter.ttk as ttk
 from tkinter.scrolledtext import ScrolledText
 from tkinter.filedialog import askopenfilename
 from tkinter.messagebox import askyesno
+from tkinter.messagebox import showerror
 from tkinter.font import nametofont
 from contextlib import contextmanager
 
@@ -190,6 +190,9 @@ class Application(tk.Frame):
                                  command=self.clear_results_action,
                                  accelerator="F7",
                                  state=tk.DISABLED)
+        self.db_menu.add_command(label="Run script...",
+                                 command=self.run_script_action,
+                                 state=tk.DISABLED)
         self.db_menu.add_separator()
         self.db_menu.add_command(label="Exit", command=self.exit_action)
 
@@ -265,6 +268,7 @@ class Application(tk.Frame):
         self.db_menu.entryconfigure("Close", state=tk.NORMAL)
         self.db_menu.entryconfigure("Refresh", state=tk.NORMAL)
         self.db_menu.entryconfigure("Run query", state=tk.NORMAL)
+        self.db_menu.entryconfigure("Run script...", state=tk.NORMAL)
         self.enable_query()
         self.current_db_filename = db_filename
         self.master.title(f"{self.NAME} - {db_filename}")
@@ -280,6 +284,7 @@ class Application(tk.Frame):
         self.db_menu.entryconfigure("Close", state=tk.DISABLED)
         self.db_menu.entryconfigure("Refresh", state=tk.DISABLED)
         self.db_menu.entryconfigure("Run query", state=tk.DISABLED)
+        self.db_menu.entryconfigure("Run script...", state=tk.DISABLED)
         self.disable_query()
         self.pop_status_text()
         self.unload_tables()
@@ -446,12 +451,13 @@ class Application(tk.Frame):
     def get_current_query(self):
         return self.query_text.get('1.0', 'end')
 
-    def run_query(self, query):
+    def run_query(self, query, script=False):
         started_at = datetime.now()
         self.log(f"\n-- Run at {started_at}\n")
         self.log(query)
+        execute = self.db.executescript if script else self.db.execute
         try:
-            cursor = self.db.execute(query)
+            cursor = execute(query)
         except sqlite3.Error as e:
             self.log(f"Error: {e}\n", tags=("error",))
         except sqlite3.Warning as e:
@@ -481,6 +487,27 @@ class Application(tk.Frame):
                 self.tables.forget(tab_idx)
         self.result_view_count = 0
         self.db_menu.entryconfigure("Clear results", state=tk.DISABLED)
+
+    def run_script_action(self):
+        script_filename = askopenfilename(
+            title="SQLite script file",
+            filetypes=[("SQL script", ".sql")],
+            initialdir=self.get_initial_open_dir())
+        if not script_filename:
+            return False
+        return self.run_script(script_filename)
+
+    def run_script(self, script_filename):
+        try:
+            script_file = open(script_filename)
+        except OSError as e:
+            showerror(title="File error", message=str(e))
+            return False
+        else:
+            with self.status_context(f"Running script {script_filename}..."):
+                script = script_file.read()
+                self.run_query(script, script=True)
+                return True
 
 def write_to_tk_text_log(log, msg, tags=()):
     numlines = int(log.index('end - 1 line').split('.')[0])
