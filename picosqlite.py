@@ -9,7 +9,6 @@ No dependency apart from python 3.9.
 
 
 # TODO(Nicolas Despres): Run SQL script
-# TODO(Nicolas Despres): Schema view
 # TODO(Nicolas Despres): Check whether we can lazily load data using yscrollcommand
 # TODO(Nicolas Despres): Schema diagram using dotty?
 
@@ -25,6 +24,52 @@ from tkinter.filedialog import askopenfilename
 from tkinter.messagebox import askyesno
 from contextlib import contextmanager
 
+
+class SchemaFrame(tk.Frame):
+
+    COLUMNS = ("name", "type", "not null", "default", "PK")
+
+    def __init__(self, master=None):
+        super().__init__(master)
+        self._tree = ttk.Treeview(self, selectmode='browse',
+                                  columns=self.COLUMNS)
+        self._ys = ttk.Scrollbar(self, orient='vertical',
+                                 command=self._tree.yview)
+        self._xs = ttk.Scrollbar(self, orient='horizontal',
+                                 command=self._tree.xview)
+        self._tree['yscrollcommand'] = self._ys.set
+        self._tree['xscrollcommand'] = self._xs.set
+        self.rowconfigure(0, weight=1)
+        self.columnconfigure(0, weight=1)
+        self._tree.grid(column=0, row=0, sticky="nsew")
+        self._ys.grid(column=1, row=0, rowspan=2, sticky="nsw")
+        self._xs.grid(column=0, row=1, columnspan=2, sticky="ews")
+        self._format_row = RowFormatter(self.COLUMNS)
+
+    @property
+    def _db(self):
+        return self.master.db
+
+    def add_table(self, table_name):
+        table_row = (table_name, '', '', '', '')
+        self._tree.insert('', 'end', table_name, values=table_row)
+        self._format_row(table_row)
+        cursor = self._db.execute(f"pragma table_info('{table_name}')")
+        for row in cursor:
+            cid, name, vtype, notnuill, default_value, primary_key = row
+            item_id = f"{table_name}.{name}"
+            self._tree.insert(table_name, 'end', item_id,
+                              values=self._format_row(row[1:]))
+        self._tree.item(table_name, open=True)
+        self._tree.column("#0", width=10, stretch=False)
+
+    def finish_table_insertion(self):
+        self._format_row.configure_columns(self._tree)
+
+    def clear(self):
+        table_items = self._tree.get_children()
+        for table_item in table_items:
+            self._tree.delete(table_item)
 
 class Application(tk.Frame):
 
@@ -47,6 +92,9 @@ class Application(tk.Frame):
         # Tables notebook
         self.tables = ttk.Notebook(self.pane, height=400)
         self.tables.bind("<<NotebookTabChanged>>", self.on_view_table_changed)
+        self.schema = SchemaFrame(master=self)
+        self.tables.add(self.schema, text="%Schema")
+
         # Bottom notebook
         self.bottom_nb = ttk.Notebook(self.pane)
         self.init_console()
@@ -272,17 +320,24 @@ class Application(tk.Frame):
     def is_result_view_tab(self, tab_idx):
         return self.tables.tab(tab_idx, option='text').startswith("*")
 
+    def is_admin_view_tab(self, tab_idx):
+        return self.tables.tab(tab_idx, option='text').startswith("%")
+
     def unload_tables(self):
         """Unload all tables view (not result)."""
         for tab_idx in self.tables.tabs():
-            if not self.is_result_view_tab(tab_idx):
+            if not self.is_result_view_tab(tab_idx) \
+               and not self.is_admin_view_tab(tab_idx):
                 self.tables.forget(tab_idx)
+        self.schema.clear()
 
     def load_tables(self):
         with self.status_context("Loading tables..."):
             for table_name in list_tables(self.db):
                 table_view = self.create_table_view_for_table(table_name)
                 self.tables.add(table_view, text=table_name)
+                self.schema.add_table(table_name)
+            self.schema.finish_table_insertion()
 
     def create_table_view_for_table(self, table_name):
         cursor = self.db.execute(
