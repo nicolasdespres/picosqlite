@@ -29,6 +29,7 @@ from contextlib import contextmanager
 class SchemaFrame(tk.Frame):
 
     COLUMNS = ("name", "type", "not null", "default", "PK")
+    TAB_NAME = "%Schema"
 
     def __init__(self, master=None):
         super().__init__(master)
@@ -94,7 +95,6 @@ class Application(tk.Frame):
         self.tables = ttk.Notebook(self.pane, height=400)
         self.tables.bind("<<NotebookTabChanged>>", self.on_view_table_changed)
         self.schema = SchemaFrame(master=self)
-        self.tables.add(self.schema, text="%Schema")
 
         # Bottom notebook
         self.bottom_nb = ttk.Notebook(self.pane)
@@ -318,22 +318,32 @@ class Application(tk.Frame):
         self.unload_tables()
         self.load_tables()
 
-    def is_result_view_tab(self, tab_idx):
-        return self.tables.tab(tab_idx, option='text').startswith("*")
+    def is_result_view(self, tab_text):
+        return tab_text.startswith("*")
 
-    def is_admin_view_tab(self, tab_idx):
-        return self.tables.tab(tab_idx, option='text').startswith("%")
+    def is_result_view_tab(self, tab_idx):
+        return self.is_result_view(self.tables.tab(tab_idx, option='text'))
+
+    def is_admin_view(self, tab_text):
+        return tab_text.startswith("%")
 
     def unload_tables(self):
         """Unload all tables view (not result)."""
+        schema_tab_idx = None
         for tab_idx in self.tables.tabs():
-            if not self.is_result_view_tab(tab_idx) \
-               and not self.is_admin_view_tab(tab_idx):
+            tab_text = self.tables.tab(tab_idx, option='text')
+            if not self.is_result_view(tab_text) \
+               and not self.is_admin_view(tab_text):
                 self.tables.forget(tab_idx)
+            if tab_text == self.schema.TAB_NAME:
+                schema_tab_idx = tab_idx
         self.schema.clear()
+        if schema_tab_idx is not None:
+            self.tables.forget(schema_tab_idx)
 
     def load_tables(self):
         with self.status_context("Loading tables..."):
+            tab_id = self.tables.add(self.schema, text=self.schema.TAB_NAME)
             for table_name in list_tables(self.db):
                 table_view = self.create_table_view_for_table(table_name)
                 self.tables.add(table_view, text=table_name)
@@ -373,6 +383,8 @@ class Application(tk.Frame):
     def on_view_table_changed(self, event):
         tables_notebook = event.widget
         selected_tab = tables_notebook.select()
+        if not selected_tab:
+            return
         tree = tables_notebook.nametowidget(selected_tab + ".!treeview")
         self.update_shown_row(tree)
 
