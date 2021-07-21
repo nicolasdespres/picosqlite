@@ -28,6 +28,7 @@ from tkinter.messagebox import showerror
 from tkinter.messagebox import Message
 from tkinter.font import nametofont
 from contextlib import contextmanager
+import re
 
 
 def head(it, n=100):
@@ -90,15 +91,60 @@ class SchemaFrame(tk.Frame):
         for table_item in table_items:
             self._tree.delete(table_item)
 
+class ColorSyntax:
+
+    SQL_KEYWORDS = (
+        "ADD", "CONSTRAINT", "ALTER", "ALTER COLUMN", "ALTER TABLE",
+        "ALL", "AND", "ANY", "AS",  "ASC", "BACKUP DATABASE", "BETWEEN",
+        "CASE", "CHECK", "COLUMN", "CONSTRAINT", "CREATE", "CREATE DATABASE",
+        "CREATE INDEX", "CREATE OR REPLACE VIEW", "CREATE TABLE",
+        "CREATE PROCEDURE", "CREATE UNIQUE INDEX", "CREATE VIEW", "DATABASE",
+        "DEFAULT", "DELETE", "DESC", "DISTINCT", "DROP", "DROP COLUMN",
+        "DROP CONSTRAINT", "DROP DATABASE", "DROP DEFAULT", "DROP INDEX",
+        "DROP TABLE", "DROP VIEW", "EXEC", "EXISTS", "FOREIGN KEY", "FROM",
+        "FULL OUTER JOIN", "GROUP BY", "HAVING", "IN", "INDEX", "INNER JOIN",
+        "INSERT INTO", "INSERT INTO SELECT", "IS NULL", "IS NOT NULL", "JOIN",
+        "LEFT JOIN", "LIKE", "LIMIT", "NOT", "NOT NULL", "OR", "ORDER BY",
+        "OUTER JOIN", "PRIMARY KEY", "PROCEDURE", "RIGHT JOIN", "ROWNUM",
+        "SELECT", "SELECT DISTINCT", "SELECT INTO", "SELECT TOP", "SET",
+        "TABLE", "TOP", "TRUNCATE TABLE", "UNION", "UNION ALL", "UNIQUE",
+        "UPDATE", "VALUES", "VIEW", "WHERE",
+    )
+
+    SQL_KEYWORDS_RE = re.compile(
+        r"\b(%(keywords)s)\b"
+        % {"keywords": "|".join(re.escape(i) for i in SQL_KEYWORDS)},
+        re.IGNORECASE)
+
+    def __init__(self):
+        pass
+
+    def configure(self, text):
+        text.tag_configure("keyword", foreground="blue")
+
+    def highlight(self, text, start, end):
+        content = text.get(start, end)
+        text.tag_remove("keyword", start, end)
+        for match in self.SQL_KEYWORDS_RE.finditer(content):
+            keyword_token = match.group(1)
+            match_start, match_end = match.span()
+            token_start = f"{start}+{match_start}c"
+            token_end = f"{start}+{match_end}c"
+            text.tag_add("keyword", token_start, token_end)
+
 class Console(ttk.Panedwindow):
 
     def __init__(self, master=None, run_query_command=None,
                  command_log_maxline=1000):
         super().__init__(master, orient=tk.VERTICAL)
 
+        self.color_syntax = ColorSyntax()
+
         ### Query
         self.query_frame = tk.Frame()
         self.query_text = ScrolledText(self.query_frame, wrap="word")
+        self.query_text.bind("<<Modified>>", self.on_modified_query)
+        self.color_syntax.configure(self.query_text)
         self.run_query_bt = tk.Button(self.query_frame, text="Run",
                                       command=run_query_command)
         self.disable()
@@ -140,6 +186,10 @@ class Console(ttk.Panedwindow):
             msg += "\n"
         write_to_tk_text_log(self.cmdlog_text, msg, tags=tags)
         self.cmdlog_text.see("end")
+
+    def on_modified_query(self, event):
+        self.color_syntax.highlight(self.query_text, "1.0", "end")
+        self.query_text.edit_modified(False)
 
 class Application(tk.Frame):
 
