@@ -581,7 +581,7 @@ class Application(tk.Frame):
             self.log(f"-- duration: {stopped_at - started_at}")
 
     def log(self, msg, tags=()):
-        self.console.log(msg, tags=())
+        self.console.log(msg, tags=tags)
 
     def clear_results_action(self):
         """Remove all result tabs."""
