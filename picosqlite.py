@@ -111,26 +111,27 @@ class ColorSyntax:
         "UPDATE", "VALUES", "VIEW", "WHERE",
     )
 
-    SQL_KEYWORDS_RE = re.compile(
-        r"\b(%(keywords)s)\b"
+    SQL_RE = re.compile(
+        r"(?P<comment>^--.*$)|(?P<keyword>\b(?:%(keywords)s)\b)"
         % {"keywords": "|".join(re.escape(i) for i in SQL_KEYWORDS)},
-        re.IGNORECASE)
+        re.IGNORECASE|re.MULTILINE)
 
     def __init__(self):
         pass
 
     def configure(self, text):
         text.tag_configure("keyword", foreground="blue")
+        text.tag_configure("comment", foreground="yellow")
 
     def highlight(self, text, start, end):
         content = text.get(start, end)
         text.tag_remove("keyword", start, end)
-        for match in self.SQL_KEYWORDS_RE.finditer(content):
-            keyword_token = match.group(1)
-            match_start, match_end = match.span()
-            token_start = f"{start}+{match_start}c"
-            token_end = f"{start}+{match_end}c"
-            text.tag_add("keyword", token_start, token_end)
+        for match in self.SQL_RE.finditer(content):
+            for group_name in match.groupdict():
+                match_start, match_end = match.span(group_name)
+                token_start = f"{start}+{match_start}c"
+                token_end = f"{start}+{match_end}c"
+                text.tag_add(group_name, token_start, token_end)
 
 class Console(ttk.Panedwindow):
 
