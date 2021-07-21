@@ -90,6 +90,57 @@ class SchemaFrame(tk.Frame):
         for table_item in table_items:
             self._tree.delete(table_item)
 
+class Console(ttk.Panedwindow):
+
+    def __init__(self, master=None, run_query_command=None,
+                 command_log_maxline=1000):
+        super().__init__(master, orient=tk.VERTICAL)
+
+        ### Query
+        self.query_frame = tk.Frame()
+        self.query_text = ScrolledText(self.query_frame, wrap="word")
+        self.run_query_bt = tk.Button(self.query_frame, text="Run",
+                                      command=run_query_command)
+        self.disable()
+        self.query_frame.grid(column=0, row=0, sticky="nswe")
+        self.query_text.grid(column=0, row=0, sticky="nswe")
+        self.run_query_bt.grid(column=1, row=0, sticky="nswe")
+        self.query_frame.rowconfigure(0, weight=1)
+        self.query_frame.columnconfigure(0, weight=1)
+
+        ### Command log
+        self.cmdlog_text = ScrolledText(wrap="word", background="lightgray",
+                                        height=100)
+        self.cmdlog_text.MAXLINES = command_log_maxline
+        self.cmdlog_text.configure(state=tk.DISABLED)
+        self.cmdlog_text.rowconfigure(0, weight=1)
+        self.cmdlog_text.columnconfigure(0, weight=1)
+        self.cmdlog_text.tag_configure("error", foreground="red")
+        self.cmdlog_text.tag_configure("warning", foreground="orange")
+
+        # Register
+        self.add(self.cmdlog_text, weight=4)
+        self.add(self.query_frame, weight=1)
+
+    def enable(self):
+        self.query_text['state'] = tk.NORMAL
+        self.query_text['background'] = "white"
+        self.run_query_bt['state'] = tk.NORMAL
+
+    def disable(self):
+        self.query_text['background'] = "gray"
+        self.query_text['state'] = tk.DISABLED
+        self.run_query_bt['state'] = tk.DISABLED
+
+    def get_current_query(self):
+        return self.query_text.get('1.0', 'end')
+
+    def log(self, msg, tags=()):
+        if not msg.endswith("\n"):
+            msg += "\n"
+        write_to_tk_text_log(self.cmdlog_text, msg, tags=tags)
+        self.cmdlog_text.see("end")
+
 class Application(tk.Frame):
 
     NAME = "Pico SQL"
@@ -115,7 +166,8 @@ class Application(tk.Frame):
 
         # Bottom notebook
         self.bottom_nb = ttk.Notebook(self.pane)
-        self.init_console()
+        self.console = Console(self, run_query_command=self.run_query_action,
+                               command_log_maxline=self.COMMAND_LOG_HISTORY)
         self.init_detailed_view()
         self.bottom_nb.add(self.console, text="Console")
         self.bottom_nb.add(self.detailed_view, text="Details")
@@ -126,34 +178,6 @@ class Application(tk.Frame):
         self.statusbar = tk.Label(self, anchor="w")
         self._status_stack = []
         self.push_status_text("Ready to open a database.")
-
-    def init_console(self):
-        self.console = ttk.Panedwindow(self, orient=tk.VERTICAL)
-
-        ### Query
-        self.query_frame = tk.Frame()
-        self.query_text = ScrolledText(self.query_frame, wrap="word")
-        self.run_query_bt = tk.Button(self.query_frame, text="Run",
-                                      command=self.run_query_action)
-        self.disable_query()
-        self.query_frame.grid(column=0, row=0, sticky="nswe")
-        self.query_text.grid(column=0, row=0, sticky="nswe")
-        self.run_query_bt.grid(column=1, row=0, sticky="nswe")
-        self.query_frame.rowconfigure(0, weight=1)
-        self.query_frame.columnconfigure(0, weight=1)
-
-        ### Command log
-        self.cmdlog_text = ScrolledText(wrap="word", background="lightgray",
-                                        height=100)
-        self.cmdlog_text.MAXLINES = self.COMMAND_LOG_HISTORY
-        self.cmdlog_text.configure(state=tk.DISABLED)
-        self.cmdlog_text.rowconfigure(0, weight=1)
-        self.cmdlog_text.columnconfigure(0, weight=1)
-        self.cmdlog_text.tag_configure("error", foreground="red")
-        self.cmdlog_text.tag_configure("warning", foreground="orange")
-
-        self.console.add(self.cmdlog_text, weight=4)
-        self.console.add(self.query_frame, weight=1)
 
     def init_detailed_view(self):
         self.detailed_view = ttk.PanedWindow(self, orient=tk.HORIZONTAL)
@@ -290,7 +314,7 @@ class Application(tk.Frame):
         self.db_menu.entryconfigure("Refresh", state=tk.NORMAL)
         self.db_menu.entryconfigure("Run query", state=tk.NORMAL)
         self.db_menu.entryconfigure("Run script...", state=tk.NORMAL)
-        self.enable_query()
+        self.console.enable()
         self.current_db_filename = db_filename
         self.master.title(f"{self.NAME} - {db_filename}")
         self.push_status_text("Ready to run query.")
@@ -306,7 +330,7 @@ class Application(tk.Frame):
         self.db_menu.entryconfigure("Refresh", state=tk.DISABLED)
         self.db_menu.entryconfigure("Run query", state=tk.DISABLED)
         self.db_menu.entryconfigure("Run script...", state=tk.DISABLED)
-        self.disable_query()
+        self.console.disable()
         self.pop_status_text()
         self.unload_tables()
         self.clear_results_action()
@@ -329,16 +353,6 @@ class Application(tk.Frame):
 
     def set_last_status_text(self):
         self.statusbar['text'] = self._status_stack[-1]
-
-    def enable_query(self):
-        self.query_text['state'] = tk.NORMAL
-        self.query_text['background'] = "white"
-        self.run_query_bt['state'] = tk.NORMAL
-
-    def disable_query(self):
-        self.query_text['background'] = "gray"
-        self.query_text['state'] = tk.DISABLED
-        self.run_query_bt['state'] = tk.DISABLED
 
     def refresh_action(self):
         selected_tab_index = get_selected_tab_index(self.tables)
@@ -485,10 +499,7 @@ class Application(tk.Frame):
 
     def run_query_action(self):
         with self.status_context("Running query..."):
-            self.run_query(self.get_current_query())
-
-    def get_current_query(self):
-        return self.query_text.get('1.0', 'end')
+            self.run_query(self.console.get_current_query())
 
     def run_query(self, query, script=False):
         started_at = datetime.now()
@@ -515,10 +526,7 @@ class Application(tk.Frame):
             self.log(f"-- duration: {stopped_at - started_at}")
 
     def log(self, msg, tags=()):
-        if not msg.endswith("\n"):
-            msg += "\n"
-        write_to_tk_text_log(self.cmdlog_text, msg, tags=tags)
-        self.cmdlog_text.see("end")
+        self.console.log(msg, tags=())
 
     def clear_results_action(self):
         """Remove all result tabs."""
