@@ -138,13 +138,10 @@ class Console(ttk.Panedwindow):
                  command_log_maxline=1000):
         super().__init__(master, orient=tk.VERTICAL)
 
-        self.color_syntax = ColorSyntax()
-
         ### Query
         self.query_frame = tk.Frame()
         self.query_text = ScrolledText(self.query_frame, wrap="word")
         self.query_text.bind("<<Modified>>", self.on_modified_query)
-        self.color_syntax.configure(self.query_text)
         self.run_query_bt = tk.Button(self.query_frame, text="Run",
                                       command=run_query_command)
         self.disable()
@@ -168,6 +165,11 @@ class Console(ttk.Panedwindow):
         self.add(self.cmdlog_text, weight=4)
         self.add(self.query_frame, weight=1)
 
+        # Syntax coloring
+        self.color_syntax = ColorSyntax()
+        self.color_syntax.configure(self.query_text)
+        self.color_syntax.configure(self.cmdlog_text)
+
     def enable(self):
         self.query_text['state'] = tk.NORMAL
         self.query_text['background'] = "white"
@@ -184,7 +186,10 @@ class Console(ttk.Panedwindow):
     def log(self, msg, tags=()):
         if not msg.endswith("\n"):
             msg += "\n"
+        start_index = self.cmdlog_text.index("end -1c")
         write_to_tk_text_log(self.cmdlog_text, msg, tags=tags)
+        if not tags:
+            self.color_syntax.highlight(self.cmdlog_text, start_index, "end")
         self.cmdlog_text.see("end")
 
     def on_modified_query(self, event):
