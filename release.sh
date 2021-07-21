@@ -3,7 +3,7 @@
 #::BEGIN::
 # USAGE
 #
-#  release.sh <version>
+#  release.sh
 #
 # DESCRIPTION
 #
@@ -20,26 +20,12 @@ set -o nounset
 export LC_ALL=C
 unset CDPATH
 
-# Print the message in the header of this file.
-usage()
-{
-  sed -ne '/^#::BEGIN::/,/^#::END::/p' < "$0" \
-    | sed -e '/^#::BEGIN::/d;/^#::END::/d' \
-    | sed -e 's/^# //; s/^#//'
-}
-
-if [ $# -ne 1 ]
-then
-  usage
-  exit 1
-fi
-
-VERSION="$1"
-
 NAME="picosqlite"
 ORIGINAL_FILE="$NAME.py"
-RELEASE_FILE="${NAME}_$VERSION.py"
-git tag -F "RelNotes/v$VERSION.txt" "v$VERSION"
+VERSION="$(git describe --match='v*' --dirty)"
+DIST_DIR=dist
+mkdir -p "$DIST_DIR"
+RELEASE_FILE="${DIST}/${NAME}.py"
 sed -e "s/^__version__ = 'git'/__version__ = '$VERSION'/" \
     < "$ORIGINAL_FILE" \
     > "$RELEASE_FILE"
