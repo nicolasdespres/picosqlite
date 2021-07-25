@@ -29,6 +29,7 @@ from tkinter.messagebox import Message
 from tkinter.font import nametofont
 from contextlib import contextmanager
 import re
+import threading
 
 
 def head(it, n=100):
@@ -237,17 +238,20 @@ class StatusBar(tk.Frame):
         super().__init__(master=master)
         self._stack = []
         self.label = tk.Label(self, anchor="w")
+        self.progress = ttk.Progressbar(self, orient=tk.HORIZONTAL, length=100)
         self.rowconfigure(0, weight=1)
         self.columnconfigure(0, weight=1)
         self.label.grid(column=0, row=0, sticky="nsew")
 
-    def push(self, message):
+    def push(self, message, mode=None, maximum=None):
         self._stack.append(message)
         self.set_last_status_text()
 
     def pop(self):
         self._stack.pop()
         self.set_last_status_text()
+        self.progress.stop()
+        self.progress.grid_remove()
 
     @contextmanager
     def context(self, message):
@@ -259,6 +263,11 @@ class StatusBar(tk.Frame):
 
     def set_last_status_text(self):
         self.label['text'] = self._stack[-1]
+
+    def start(self, interval=None, **options):
+        self.progress.configure(**options)
+        self.progress.start()
+        self.progress.grid(column=1, row=0, sticky="nse")
 
 class Application(tk.Frame):
 
@@ -602,17 +611,16 @@ class Application(tk.Frame):
         with self.statusbar.context("Running query..."):
             self.run_query(self.console.get_current_query())
 
-    def run_query(self, query, script=False):
+    def run_query(self, query):
         started_at = datetime.now()
         self.log(f"\n-- Run at {started_at}\n")
         self.log(query)
-        execute = self.db.executescript if script else self.db.execute
         try:
-            cursor = execute(query)
+            cursor = self.db.execute(query)
         except sqlite3.Error as e:
-            self.log(f"Error: {e}\n", tags=("error",))
+            self.log_error(e)
         except sqlite3.Warning as e:
-            self.log(f"Warning: {e}\n", tags=("warning",))
+            self.log_warning(e)
         else:
             if cursor.description is None: # No data to fetch.
                 self.refresh_action()
@@ -628,6 +636,12 @@ class Application(tk.Frame):
 
     def log(self, msg, tags=()):
         self.console.log(msg, tags=tags)
+
+    def log_error(self, e):
+        self.log(f"Error: {e}\n", tags=("error",))
+
+    def log_warning(self, w):
+        self.log(f"Warning: {w}\n", tags=("warning",))
 
     def clear_results_action(self):
         """Remove all result tabs."""
@@ -653,10 +667,92 @@ class Application(tk.Frame):
             showerror(title="File error", message=str(e))
             return False
         else:
-            with self.statusbar.context(f"Running script {script_filename}..."):
-                script = script_file.read()
-                self.run_query(script, script=True)
-                return True
+            self.script_runner = self.create_task(
+                ScriptRunner,
+                self.current_db_filename, script_file,
+                on_finish=self.on_script_finished)
+            self.statusbar.push(f"Running script {script_filename}...")
+            self.statusbar.start(mode="indeterminate")
+            self.console.disable()
+            self.db_menu.entryconfigure("Open...", state=tk.DISABLED)
+            self.db_menu.entryconfigure("Close", state=tk.DISABLED)
+            self.db_menu.entryconfigure("Run query", state=tk.DISABLED)
+            self.db_menu.entryconfigure("Run script...", state=tk.DISABLED)
+            self.db_menu.entryconfigure("Refresh", state=tk.DISABLED)
+            self.script_runner.start()
+            return True
+
+    def on_script_finished(self, event):
+        self.statusbar.pop()
+        self.log(f"-- Run script '{self.script_runner.script_filename}' in {self.script_runner.duration}")
+        if self.script_runner.has_error():
+            self.log_error(self.script_runner.error)
+        elif self.script_runner.has_warning():
+            self.log_warning(self.script_runner.error)
+        self.refresh_action()
+        self.console.enable()
+        self.db_menu.entryconfigure("Open...", state=tk.NORMAL)
+        self.db_menu.entryconfigure("Close", state=tk.NORMAL)
+        self.db_menu.entryconfigure("Run query", state=tk.NORMAL)
+        self.db_menu.entryconfigure("Run script...", state=tk.NORMAL)
+        self.db_menu.entryconfigure("Refresh", state=tk.NORMAL)
+
+    def create_task(self, task_class, *args, **kwargs):
+        return task_class(*args, root=self.master, **kwargs)
+
+class Task(threading.Thread):
+
+    def __init__(self, root=None, **thread_kwargs):
+        super().__init__(**thread_kwargs)
+        self.root = root
+
+    def event_generate(self, *args, **kwargs):
+        self.root.event_generate(*args, **kwargs)
+
+    def bind(self, *args, **kwargs):
+        self.root.bind(*args, **kwargs)
+
+class ScriptRunner(Task):
+
+    ON_FINISH_EVENT = "<<ScriptRunnerFinished>>"
+
+    def __init__(self, db_filename, script_file, root=None, on_finish=None):
+        super().__init__(
+            root=root,
+            daemon=True, # Allow exit before finish => no commit
+            name='script_runner')
+        self.script_file = script_file
+        self.db_filename = db_filename
+        self.bind(self.ON_FINISH_EVENT, on_finish)
+
+    def run(self):
+        self.error = None
+        self.started_at = datetime.now()
+        db = sqlite3.connect(self.db_filename)
+        try:
+            script = self.script_file.read()
+            db.executescript(script)
+        except (sqlite3.Error, sqlite3.Warning) as e:
+            self.error = e
+        finally:
+            self.script_file.close()
+            db.close()
+            self.stopped_at = datetime.now()
+            self.event_generate(self.ON_FINISH_EVENT)
+
+    @property
+    def duration(self):
+        return self.stopped_at - self.started_at
+
+    @property
+    def script_filename(self):
+        return self.script_file.name
+
+    def has_error(self):
+        return isinstance(self.error, sqlite3.Error)
+
+    def has_warning(self):
+        return isinstance(self.error, sqlite3.Warning)
 
 def write_to_tk_text_log(log, msg, tags=()):
     numlines = int(log.index('end - 1 line').split('.')[0])
