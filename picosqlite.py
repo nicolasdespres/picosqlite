@@ -444,7 +444,7 @@ class Application(tk.Frame):
     def load_tables(self):
         with self.status_context("Loading tables..."):
             tab_id = self.tables.add(self.schema, text=self.schema.TAB_NAME)
-            for table_name in list_tables(self.db):
+            for table_name in iter_tables(self.db):
                 table_view = self.create_table_view_for_table(table_name)
                 self.tables.add(table_view, text=table_name)
                 self.schema.add_table(table_name)
@@ -716,7 +716,7 @@ def mangle_value(v):
 def unmangle_value(v):
     return eval(f'"""{v}"""')
 
-def list_tables(db):
+def iter_tables(db):
     cursor = db.execute(
         "SELECT name "
         "FROM sqlite_master "
