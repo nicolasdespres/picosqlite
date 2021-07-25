@@ -231,6 +231,35 @@ class Console(ttk.Panedwindow):
         self.color_syntax.highlight(self.query_text, "1.0", "end")
         self.query_text.edit_modified(False)
 
+class StatusBar(tk.Frame):
+
+    def __init__(self, master=None):
+        super().__init__(master=master)
+        self._stack = []
+        self.label = tk.Label(self, anchor="w")
+        self.rowconfigure(0, weight=1)
+        self.columnconfigure(0, weight=1)
+        self.label.grid(column=0, row=0, sticky="nsew")
+
+    def push(self, message):
+        self._stack.append(message)
+        self.set_last_status_text()
+
+    def pop(self):
+        self._stack.pop()
+        self.set_last_status_text()
+
+    @contextmanager
+    def context(self, message):
+        self.push(message)
+        try:
+            yield
+        finally:
+            self.pop()
+
+    def set_last_status_text(self):
+        self.label['text'] = self._stack[-1]
+
 class Application(tk.Frame):
 
     NAME = "Pico SQL"
@@ -265,9 +294,8 @@ class Application(tk.Frame):
         self.pane.add(self.bottom_nb)
 
     def init_statusbar(self):
-        self.statusbar = tk.Label(self, anchor="w")
-        self._status_stack = []
-        self.push_status_text("Ready to open a database.")
+        self.statusbar = StatusBar(self)
+        self.statusbar.push("Ready to open a database.")
 
     def init_detailed_view(self):
         self.detailed_view = ttk.PanedWindow(self, orient=tk.HORIZONTAL)
@@ -407,7 +435,7 @@ class Application(tk.Frame):
         self.console.enable()
         self.current_db_filename = db_filename
         self.master.title(f"{self.NAME} - {db_filename}")
-        self.push_status_text("Ready to run query.")
+        self.statusbar.push("Ready to run query.")
 
     def close_db(self):
         if self.current_db_filename is None:
@@ -421,28 +449,9 @@ class Application(tk.Frame):
         self.db_menu.entryconfigure("Run query", state=tk.DISABLED)
         self.db_menu.entryconfigure("Run script...", state=tk.DISABLED)
         self.console.disable()
-        self.pop_status_text()
+        self.statusbar.pop()
         self.unload_tables()
         self.clear_results_action()
-
-    def push_status_text(self, text):
-        self._status_stack.append(text)
-        self.set_last_status_text()
-
-    def pop_status_text(self):
-        self._status_stack.pop()
-        self.set_last_status_text()
-
-    @contextmanager
-    def status_context(self, text):
-        self.push_status_text(text)
-        try:
-            yield
-        finally:
-            self.pop_status_text()
-
-    def set_last_status_text(self):
-        self.statusbar['text'] = self._status_stack[-1]
 
     def refresh_action(self):
         selected_tab_index = get_selected_tab_index(self.tables)
@@ -476,7 +485,7 @@ class Application(tk.Frame):
             self.tables.forget(schema_tab_idx)
 
     def load_tables(self):
-        with self.status_context("Loading tables..."):
+        with self.statusbar.context("Loading tables..."):
             tab_id = self.tables.add(self.schema, text=self.schema.TAB_NAME)
             for table_name in iter_tables(self.db):
                 table_view = self.create_table_view_for_table(table_name)
@@ -590,7 +599,7 @@ class Application(tk.Frame):
         self.show_text["state"] = tk.DISABLED
 
     def run_query_action(self):
-        with self.status_context("Running query..."):
+        with self.statusbar.context("Running query..."):
             self.run_query(self.console.get_current_query())
 
     def run_query(self, query, script=False):
@@ -644,7 +653,7 @@ class Application(tk.Frame):
             showerror(title="File error", message=str(e))
             return False
         else:
-            with self.status_context(f"Running script {script_filename}..."):
+            with self.statusbar.context(f"Running script {script_filename}..."):
                 script = script_file.read()
                 self.run_query(script, script=True)
                 return True
