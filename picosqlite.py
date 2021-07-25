@@ -91,6 +91,21 @@ class SchemaFrame(tk.Frame):
         for table_item in table_items:
             self._tree.delete(table_item)
 
+    def iter_items(self):
+        table_items = self._tree.get_children()
+        for table_item in table_items:
+            field_items = self._tree.get_children(table_item)
+            yield from field_items
+
+    def get_tables_and_fields(self):
+        tables = set()
+        fields = set()
+        for item in self.iter_items():
+            table, field = item.split(".")
+            tables.add(table)
+            fields.add(field)
+        return tables, fields
+
 class ColorSyntax:
 
     SQL_KEYWORDS = (
@@ -111,27 +126,45 @@ class ColorSyntax:
         "UPDATE", "VALUES", "VIEW", "WHERE",
     )
 
-    SQL_RE = re.compile(
-        r"(?P<comment>^--.*$)|(?P<keyword>\b(?:%(keywords)s)\b)"
-        % {"keywords": "|".join(re.escape(i) for i in SQL_KEYWORDS)},
-        re.IGNORECASE|re.MULTILINE)
-
     def __init__(self):
-        pass
+        self.tables = set()
+        self.fields = set()
+        self._recompile()
+
+    def _recompile(self):
+        self._sql_re = re.compile(
+            r"""
+              (?P<comment>  ^--.*$)
+            | (?P<keyword>  \b(?:%(keywords)s)\b)
+            | (?P<table>    \b(?:%(tables)s)\b)
+            | (?P<field>    \b(?:%(fields)s)\b)
+            """ % {
+                "keywords": "|".join(re.escape(i) for i in self.SQL_KEYWORDS),
+                "tables": "|".join(re.escape(i) for i in self.tables),
+                "fields": "|".join(re.escape(i) for i in self.fields),
+            },
+            re.IGNORECASE | re.MULTILINE | re.VERBOSE)
 
     def configure(self, text):
         text.tag_configure("keyword", foreground="blue")
         text.tag_configure("comment", foreground="yellow")
+        text.tag_configure("table", foreground="orange")
+        text.tag_configure("field", foreground="green")
 
     def highlight(self, text, start, end):
         content = text.get(start, end)
         text.tag_remove("keyword", start, end)
-        for match in self.SQL_RE.finditer(content):
+        for match in self._sql_re.finditer(content):
             for group_name in match.groupdict():
                 match_start, match_end = match.span(group_name)
                 token_start = f"{start}+{match_start}c"
                 token_end = f"{start}+{match_end}c"
                 text.tag_add(group_name, token_start, token_end)
+
+    def set_database_names(self, tables, fields):
+        self.tables = tables
+        self.fields = fields
+        self._recompile()
 
 class Console(ttk.Panedwindow):
 
@@ -449,6 +482,8 @@ class Application(tk.Frame):
                 self.tables.add(table_view, text=table_name)
                 self.schema.add_table(table_name)
             self.schema.finish_table_insertion()
+            self.console.color_syntax.set_database_names(*self.schema.get_tables_and_fields())
+
 
     def create_table_view_for_table(self, table_name):
         cursor = self.db.execute(
