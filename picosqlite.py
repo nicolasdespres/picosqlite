@@ -111,7 +111,8 @@ class ColorSyntax:
     SQL_KEYWORDS = (
         "ADD", "CONSTRAINT", "ALTER", "ALTER COLUMN", "ALTER TABLE",
         "ALL", "AND", "ANY", "AS",  "ASC", "BACKUP DATABASE", "BETWEEN",
-        "CASE", "CHECK", "COLUMN", "CONSTRAINT", "CREATE", "CREATE DATABASE",
+        "CASE", "CHECK", "COLUMN", "COMMIT", "CONSTRAINT", "CREATE",
+        "CREATE DATABASE",
         "CREATE INDEX", "CREATE OR REPLACE VIEW", "CREATE TABLE",
         "CREATE PROCEDURE", "CREATE UNIQUE INDEX", "CREATE VIEW", "DATABASE",
         "DEFAULT", "DELETE", "DESC", "DISTINCT", "DROP", "DROP COLUMN",
@@ -135,15 +136,15 @@ class ColorSyntax:
         self._sql_re = re.compile(
             r"""
               (?P<comment>  ^--.*$)
-            | (?P<keyword>  \b(?:%(keywords)s)\b)
-            | (?P<table>    \b(?:%(tables)s)\b)
-            | (?P<field>    \b(?:%(fields)s)\b)
+            | (?P<keyword>  \b(?i:%(keywords)s)\b)
+            | (?P<table>    \b(?i:%(tables)s)\b)
+            | (?P<field>    \b(?i:%(fields)s)\b)
             """ % {
                 "keywords": "|".join(re.escape(i) for i in self.SQL_KEYWORDS),
                 "tables": "|".join(re.escape(i) for i in self.tables),
                 "fields": "|".join(re.escape(i) for i in self.fields),
             },
-            re.IGNORECASE | re.MULTILINE | re.VERBOSE)
+            re.MULTILINE | re.VERBOSE)
 
     def configure(self, text):
         text.tag_configure("keyword", foreground="blue")
