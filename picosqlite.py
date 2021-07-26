@@ -911,12 +911,7 @@ class Application(tk.Frame):
         self.run_query(self.console.get_current_query())
         self.console.run_query_bt.configure(
             text="Stop", command=self.interrupt_action)
-        self.db_menu.entryconfigure("Open...", state=tk.DISABLED)
-        self.db_menu.entryconfigure("Close", state=tk.DISABLED)
-        self.db_menu.entryconfigure("Run query", state=tk.DISABLED)
-        self.db_menu.entryconfigure("Run script...", state=tk.DISABLED)
-        self.db_menu.entryconfigure("Refresh", state=tk.DISABLED)
-        self.db_menu.entryconfigure("Interrupt", state=tk.NORMAL)
+        self.enable_sql_execution_state()
 
     def run_query(self, query):
         self.sql.put_request(Request.RunQuery(query=query))
@@ -948,12 +943,7 @@ class Application(tk.Frame):
         self.log(f"-- duration: {result.duration}")
         self.console.run_query_bt.configure(
             text="Run", command=self.run_query_action)
-        self.db_menu.entryconfigure("Open...", state=tk.NORMAL)
-        self.db_menu.entryconfigure("Close", state=tk.NORMAL)
-        self.db_menu.entryconfigure("Run query", state=tk.NORMAL)
-        self.db_menu.entryconfigure("Run script...", state=tk.NORMAL)
-        self.db_menu.entryconfigure("Refresh", state=tk.NORMAL)
-        self.db_menu.entryconfigure("Interrupt", state=tk.DISABLED)
+        self.disable_sql_execution_state()
         self.statusbar.pop()
 
     def interrupt_action(self):
@@ -997,13 +987,7 @@ class Application(tk.Frame):
                                   script=script_file.read()))
             self.statusbar.push(f"Running script {script_filename}...")
             self.statusbar.start(mode="indeterminate")
-            self.console.disable()
-            self.db_menu.entryconfigure("Open...", state=tk.DISABLED)
-            self.db_menu.entryconfigure("Close", state=tk.DISABLED)
-            self.db_menu.entryconfigure("Run query", state=tk.DISABLED)
-            self.db_menu.entryconfigure("Run script...", state=tk.DISABLED)
-            self.db_menu.entryconfigure("Refresh", state=tk.DISABLED)
-            self.db_menu.entryconfigure("Interrupt", state=tk.NORMAL)
+            self.enable_sql_execution_state()
             return True
 
     def on_sql_ScriptFinished(self, result: ScriptFinished):
@@ -1014,6 +998,18 @@ class Application(tk.Frame):
         elif result.warning is not None:
             self.log_warning(result.warning)
         self.refresh_action()
+        self.disable_sql_execution_state()
+
+    def enable_sql_execution_state(self):
+        self.console.disable()
+        self.db_menu.entryconfigure("Open...", state=tk.DISABLED)
+        self.db_menu.entryconfigure("Close", state=tk.DISABLED)
+        self.db_menu.entryconfigure("Run query", state=tk.DISABLED)
+        self.db_menu.entryconfigure("Run script...", state=tk.DISABLED)
+        self.db_menu.entryconfigure("Refresh", state=tk.DISABLED)
+        self.db_menu.entryconfigure("Interrupt", state=tk.NORMAL)
+
+    def disable_sql_execution_state(self):
         self.console.enable()
         self.db_menu.entryconfigure("Open...", state=tk.NORMAL)
         self.db_menu.entryconfigure("Close", state=tk.NORMAL)
