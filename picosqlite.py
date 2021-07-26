@@ -450,7 +450,7 @@ class Console(ttk.Panedwindow):
     def enable(self):
         self.query_text['state'] = tk.NORMAL
         self.query_text['background'] = "white"
-        self.run_query_bt['state'] = tk.NORMAL
+        self._update_run_query_bt_state()
 
     def disable(self):
         self.query_text['background'] = "gray"
@@ -472,6 +472,10 @@ class Console(ttk.Panedwindow):
     def on_modified_query(self, event):
         self.color_syntax.highlight(self.query_text, "1.0", "end")
         self.query_text.edit_modified(False)
+        self._update_run_query_bt_state()
+
+    def _update_run_query_bt_state(self):
+        self.run_query_bt['state'] = tk.NORMAL if sqlite3.complete_statement(self.get_current_query()) else tk.DISABLED
 
 class StatusBar(tk.Frame):
 
