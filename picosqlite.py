@@ -174,6 +174,9 @@ class SQLRunner(Task):
         self.join(timeout=1.0)
         return not self.is_alive()
 
+    def interrupt(self):
+        self._db.interrupt()
+
     def run(self):
         self._db = sqlite3.connect(self._db_filename)
         while self._db is not None:
@@ -609,6 +612,9 @@ class Application(tk.Frame):
         self.db_menu.add_command(label="Run script...",
                                  command=self.run_script_action,
                                  state=tk.DISABLED)
+        self.db_menu.add_command(label="Interrupt",
+                                 command=self.interrupt_action,
+                                 accelerator="F12")
         self.db_menu.add_separator()
         self.db_menu.add_command(label="Exit", command=self.exit_action)
 
@@ -705,6 +711,7 @@ class Application(tk.Frame):
         self.db_menu.entryconfigure("Refresh", state=tk.DISABLED)
         self.db_menu.entryconfigure("Run query", state=tk.DISABLED)
         self.db_menu.entryconfigure("Run script...", state=tk.DISABLED)
+        self.db_menu.entryconfigure("Interrupt", state=tk.DISABLED)
         self.console.disable()
         self.statusbar.pop()
         self.unload_tables()
@@ -765,6 +772,7 @@ class Application(tk.Frame):
         self.db_menu.entryconfigure("Refresh", state=tk.NORMAL)
         self.db_menu.entryconfigure("Run query", state=tk.NORMAL)
         self.db_menu.entryconfigure("Run script...", state=tk.NORMAL)
+        self.db_menu.entryconfigure("Interrupt", state=tk.DISABLED)
         self.console.enable()
         self.master.title(f"{self.NAME} - {self.sql.db_filename}")
         self.statusbar.change_text("Ready to run query.")
@@ -901,6 +909,14 @@ class Application(tk.Frame):
     def run_query_action(self):
         self.statusbar.push("Running query...")
         self.run_query(self.console.get_current_query())
+        self.console.run_query_bt.configure(
+            text="Stop", command=self.interrupt_action)
+        self.db_menu.entryconfigure("Open...", state=tk.DISABLED)
+        self.db_menu.entryconfigure("Close", state=tk.DISABLED)
+        self.db_menu.entryconfigure("Run query", state=tk.DISABLED)
+        self.db_menu.entryconfigure("Run script...", state=tk.DISABLED)
+        self.db_menu.entryconfigure("Refresh", state=tk.DISABLED)
+        self.db_menu.entryconfigure("Interrupt", state=tk.NORMAL)
 
     def run_query(self, query):
         self.sql.put_request(Request.RunQuery(query=query))
@@ -930,7 +946,18 @@ class Application(tk.Frame):
             self.db_menu.entryconfigure("Clear results", state=tk.NORMAL)
             self.tables.select(0)
         self.log(f"-- duration: {result.duration}")
+        self.console.run_query_bt.configure(
+            text="Run", command=self.run_query_action)
+        self.db_menu.entryconfigure("Open...", state=tk.NORMAL)
+        self.db_menu.entryconfigure("Close", state=tk.NORMAL)
+        self.db_menu.entryconfigure("Run query", state=tk.NORMAL)
+        self.db_menu.entryconfigure("Run script...", state=tk.NORMAL)
+        self.db_menu.entryconfigure("Refresh", state=tk.NORMAL)
+        self.db_menu.entryconfigure("Interrupt", state=tk.DISABLED)
         self.statusbar.pop()
+
+    def interrupt_action(self):
+        self.sql.interrupt()
 
     def log(self, msg, tags=()):
         self.console.log(msg, tags=tags)
@@ -976,6 +1003,7 @@ class Application(tk.Frame):
             self.db_menu.entryconfigure("Run query", state=tk.DISABLED)
             self.db_menu.entryconfigure("Run script...", state=tk.DISABLED)
             self.db_menu.entryconfigure("Refresh", state=tk.DISABLED)
+            self.db_menu.entryconfigure("Interrupt", state=tk.NORMAL)
             return True
 
     def on_sql_ScriptFinished(self, result: ScriptFinished):
@@ -992,6 +1020,7 @@ class Application(tk.Frame):
         self.db_menu.entryconfigure("Run query", state=tk.NORMAL)
         self.db_menu.entryconfigure("Run script...", state=tk.NORMAL)
         self.db_menu.entryconfigure("Refresh", state=tk.NORMAL)
+        self.db_menu.entryconfigure("Interrupt", state=tk.DISABLED)
 
     def create_task(self, task_class, *args, **kwargs):
         return task_class(*args, root=self.master, **kwargs)
