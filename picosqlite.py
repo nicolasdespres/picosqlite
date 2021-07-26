@@ -42,7 +42,6 @@ def head(it, n=100):
 
 def get_selected_tab_index(notebook):
     widget_name = notebook.select()
-    tabs = notebook.tabs()
     return notebook.index(widget_name)
 
 class SchemaFrame(tk.Frame):
