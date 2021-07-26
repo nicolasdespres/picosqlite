@@ -35,6 +35,7 @@ from dataclasses import dataclass
 from typing import Optional
 from typing import Any
 from collections import abc
+import functools
 
 
 class Request:
@@ -64,18 +65,18 @@ class Request:
 
 @dataclass
 class SQLResult:
+    request: Any
     started_at: datetime
     stopped_at: datetime
     error: Optional[sqlite3.Error]
     warning: Optional[sqlite3.Warning]
-    payload: Any
 
     @property
     def duration(self):
         return self.stopped_at - self.started_at
 
 @dataclass
-class Schema:
+class Schema(SQLResult):
     schema: dict[str, list[tuple[int, str, str, int, Any, int]]]
 
 Row = tuple[Any, ...]
@@ -84,26 +85,21 @@ ColumnIDS = tuple[str, ...]
 ColumnNames = tuple[str, ...]
 
 @dataclass
-class TableRows:
-    table_name: str
+class TableRows(SQLResult):
     rows: Rows
-    offset: int
-    limit: int
     column_ids: ColumnIDS
     column_names: ColumnNames
 
 @dataclass
-class QueryResult:
-    query: str
-    rows: Optional[Rows]
-    truncated: bool
-    column_ids: ColumnIDS
-    column_names: ColumnNames
+class QueryResult(SQLResult):
+    rows: Optional[Rows] = None
+    truncated: Optional[bool] = None
+    column_ids: Optional[ColumnIDS] = None
+    column_names: Optional[ColumnNames] = None
 
 @dataclass
-class ScriptFinished:
-    script_filename: str
-    script: str
+class ScriptFinished(SQLResult):
+    pass
 
 class Task(threading.Thread):
 
@@ -116,6 +112,33 @@ class Task(threading.Thread):
 
     def bind(self, *args, **kwargs):
         self.root.bind(*args, **kwargs)
+
+def handler(result_type=None):
+    assert result_type is not None
+    def handle(func):
+        @functools.wraps(func)
+        def wrapper(self, request, *args, **kwargs):
+            error = None
+            warning = None
+            payload = {}
+            started_at = datetime.now()
+            try:
+                payload = func(self, request, *args, **kwargs)
+            except sqlite3.Error as e:
+                error = e
+            except sqlite3.Warning as w:
+                warning = w
+            finally:
+                stopped_at = datetime.now()
+                return result_type(
+                    request=request,
+                    started_at=started_at,
+                    stopped_at=stopped_at,
+                    error=error,
+                    warning=warning,
+                    **payload)
+        return wrapper
+    return handle
 
 class SQLRunner(Task):
 
@@ -165,72 +188,48 @@ class SQLRunner(Task):
                 except AttributeError:
                     raise TypeError(f"unsupported request {request_name}")
                 else:
-                    self._run_handler(handler, request)
-
-    def _run_handler(self, handler, request):
-        error = None
-        warning = None
-        payload = None
-        started_at = datetime.now()
-        try:
-            payload = handler(request)
-        except sqlite3.Error as e:
-            error = e
-        except sqlite3.Warning as w:
-            warning = w
-        finally:
-            stopped_at = datetime.now()
-            result = SQLResult(started_at=started_at,
-                               stopped_at=stopped_at,
-                               error=error,
-                               warning=warning,
-                               payload=payload)
-            self._push_result(result)
+                    result = handler(request)
+                    self._push_result(result)
 
     def _push_result(self, result: SQLResult):
         self._results_q.put(result)
         self.event_generate(self.RESULT_AVAILABLE_EVENT)
 
+    @handler(result_type=Schema)
     def _handle_LoadSchema(self, request: Request.LoadSchema):
         schema = {}
         for table_name in iter_tables(self._db):
             fields = list(self._db.execute(f"pragma table_info('{table_name}')"))
             schema[table_name] = fields
-        return Schema(schema=schema)
+        return dict(schema=schema)
 
     def _handle_CloseDB(self, request: Request.CloseDB):
         raise RuntimeError("should never be called")
 
+    @handler(result_type=TableRows)
     def _handle_ViewTable(self, request: Request.ViewTable):
         cursor = self._db.execute(f"SELECT * FROM {request.table_name}")
         column_ids, column_names = get_column_ids(cursor)
         rows = list(cursor)
-        return TableRows(table_name=request.table_name,
-                         rows=rows,
-                         offset=request.offset,
-                         limit=request.limit,
-                         column_ids=column_ids,
-                         column_names=column_names)
+        return dict(rows=rows,
+                    column_ids=column_ids,
+                    column_names=column_names)
 
+    @handler(result_type=QueryResult)
     def _handle_RunQuery(self, request: Request.RunQuery):
         cursor = self._db.execute(request.query)
         if cursor.description is None: # No data to fetch.
-            column_ids = column_names = None
-            rows = None
-            truncated = False
+            return dict()
         else:
             column_ids, column_names = get_column_ids(cursor)
             rows, truncated = eat_atmost(cursor)
-        return QueryResult(query=request.query,
-                           rows=rows,
-                           truncated=truncated,
-                           column_ids=column_ids,
-                           column_names=column_names)
+            return dict(rows=rows, truncated=truncated,
+                        column_ids=column_ids, column_names=column_names)
 
+    @handler(result_type=ScriptFinished)
     def _handle_RunScript(self, request: Request.RunScript):
         self._db.executescript(request.script)
-        return ScriptFinished(script_filename=request.script_filename,
-                              script=request.script)
+        return dict()
 
 def head(it, n=100):
     while n > 0:
@@ -709,7 +708,7 @@ class Application(tk.Frame):
 
     def on_sql_result(self, event):
         result = self.sql.get_result()
-        result_name = type(result.payload).__name__
+        result_name = type(result).__name__
         handler_name = f"on_sql_{result_name}"
         try:
             handler = getattr(self, handler_name)
@@ -718,8 +717,8 @@ class Application(tk.Frame):
         else:
             handler(result)
 
-    def on_sql_Schema(self, result):
-        schema = result.payload.schema
+    def on_sql_Schema(self, result: Schema):
+        schema = result.schema
         table_names = set()
         field_names = set()
         for table_name, fields in schema.items():
@@ -737,21 +736,20 @@ class Application(tk.Frame):
         self.console.color_syntax.set_database_names(table_names, field_names)
         self.statusbar.change_text("Loading database tables...")
 
-    def on_sql_TableRows(self, result):
-        data = result.payload
-        table_view = self.create_table_view(data.column_ids,
-                                            data.column_names)
+    def on_sql_TableRows(self, result: TableRows):
+        table_view = self.create_table_view(result.column_ids,
+                                            result.column_names)
         tree = table_view.nametowidget("!treeview")
-        format_row = RowFormatter(data.column_ids, data.column_names)
-        for row in data.rows:
+        format_row = RowFormatter(result.column_ids, result.column_names)
+        for row in result.rows:
             tree.insert('', 'end', values=format_row(row))
         format_row.configure_columns(tree)
-        self.tables.add(table_view, text=data.table_name)
-        st = self.tables_status[data.table_name]
+        self.tables.add(table_view, text=result.request.table_name)
+        st = self.tables_status[result.request.table_name]
         st.loaded = True
-        st.offset = data.offset
-        st.limit = data.limit
-        self.statusbar.change_text(f"Table {data.table_name} loaded in {result.duration}...")
+        st.offset = result.request.offset
+        st.limit = result.request.limit
+        self.statusbar.change_text(f"Table {result.request.table_name} loaded in {result.duration}...")
         if self.tables_status.all_loaded():
             self.on_table_loaded()
 
@@ -903,23 +901,23 @@ class Application(tk.Frame):
     def run_query(self, query):
         self.sql.put_request(Request.RunQuery(query=query))
 
-    def on_sql_QueryResult(self, result):
+    def on_sql_QueryResult(self, result: QueryResult):
         self.log(f"\n-- Run at {result.started_at}\n")
-        self.log(result.payload.query)
+        self.log(result.request.query)
         if result.error is not None:
             self.log_error(result.error)
         if result.warning is not None:
             self.log_warning(result.warning)
-        if result.payload.rows is None: # No data fetched.
+        if result.rows is None: # No data fetched.
             # Refresh because it is probably an insert/delete operation.
             self.refresh_action()
         else:
-            result_table = self.create_table_view(result.payload.column_ids,
-                                                  result.payload.column_names)
+            result_table = self.create_table_view(result.column_ids,
+                                                  result.column_names)
             tree = result_table.nametowidget("!treeview")
-            format_row = RowFormatter(result.payload.column_ids,
-                                      result.payload.column_names)
-            for row in result.payload.rows:
+            format_row = RowFormatter(result.column_ids,
+                                      result.column_names)
+            for row in result.rows:
                 tree.insert('', 'end', values=format_row(row))
             format_row.configure_columns(tree)
             self.tables.insert(0, result_table,
@@ -976,9 +974,9 @@ class Application(tk.Frame):
             self.db_menu.entryconfigure("Refresh", state=tk.DISABLED)
             return True
 
-    def on_sql_ScriptFinished(self, result):
+    def on_sql_ScriptFinished(self, result: ScriptFinished):
         self.statusbar.pop()
-        self.log(f"-- Run script '{result.payload.script_filename}' in {result.duration}")
+        self.log(f"\n-- Run script '{result.request.script_filename}' in {result.duration}")
         if result.error is not None:
             self.log_error(result.error)
         elif result.warning is not None:
