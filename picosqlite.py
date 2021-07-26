@@ -30,7 +30,184 @@ from tkinter.font import nametofont
 from contextlib import contextmanager
 import re
 import threading
+from queue import Queue
+from dataclasses import dataclass
+from typing import Optional
+from typing import Any
+from collections import abc
 
+
+class Request:
+
+    @dataclass
+    class LoadSchema:
+        pass
+
+    @dataclass
+    class ViewTable:
+        table_name: str
+        offset: int
+        limit: int
+
+    @dataclass
+    class RunQuery:
+        query: str
+
+    @dataclass
+    class RunScript:
+        script_pathname: str
+
+    @dataclass
+    class CloseDB:
+        pass
+
+@dataclass
+class SQLResult:
+    started_at: datetime
+    stopped_at: datetime
+    error: Optional[sqlite3.Error]
+    warning: Optional[sqlite3.Warning]
+    payload: Any
+
+    @property
+    def duration(self):
+        return self.stopped_at - self.started_at
+
+@dataclass
+class Schema:
+    schema: dict[str, list[tuple[int, str, str, int, Any, int]]]
+
+Row = tuple[Any, ...]
+Rows = list[Row]
+ColumnIDS = tuple[str, ...]
+ColumnNames = tuple[str, ...]
+
+@dataclass
+class TableRows:
+    table_name: str
+    rows: Rows
+    offset: int
+    limit: int
+    column_ids: ColumnIDS
+    column_names: ColumnNames
+
+@dataclass
+class QueryResult:
+    rows: Rows
+    truncated: bool
+    column_ids: ColumnIDS
+    column_names: ColumnNames
+
+@dataclass
+class ScriptResult:
+    pass
+
+class Task(threading.Thread):
+
+    def __init__(self, root=None, **thread_kwargs):
+        super().__init__(**thread_kwargs)
+        self.root = root
+
+    def event_generate(self, *args, **kwargs):
+        self.root.event_generate(*args, **kwargs)
+
+    def bind(self, *args, **kwargs):
+        self.root.bind(*args, **kwargs)
+
+class SQLRunner(Task):
+
+    RESULT_AVAILABLE_EVENT = "<<SQLResultAvailable>>"
+
+    def __init__(self, db_filename, root=None,
+                 process_result=None):
+        super().__init__(root=root, name='SQLRunner')
+        self._db_filename = db_filename
+        if not callable(process_result):
+            raise TypeError("process_result must be callable")
+        self.bind(self.RESULT_AVAILABLE_EVENT, process_result)
+        self._requests_q = Queue()
+        self._results_q = Queue()
+        self._db = None
+
+    @property
+    def db_filename(self):
+        return self._db_filename
+
+    def put_request(self, request):
+        self._requests_q.put(request)
+
+    def get_result(self):
+        return self._results_q.get_nowait()
+
+    @property
+    def is_running(self):
+        return self._db is not None
+
+    def close(self):
+        self.put_request(Request.CloseDB())
+        self.join(timeout=1.0)
+        return not self.is_alive()
+
+    def run(self):
+        self._db = sqlite3.connect(self._db_filename)
+        while self._db is not None:
+            request = self._requests_q.get()
+            if isinstance(request, Request.CloseDB):
+                self._db.close()
+                self._db = None
+            else:
+                request_name = type(request).__name__
+                try:
+                    handler = getattr(self, f"_handle_{request_name}")
+                except AttributeError:
+                    raise TypeError(f"unsupported request {request_name}")
+                else:
+                    self._run_handler(handler, request)
+
+    def _run_handler(self, handler, request):
+        error = None
+        warning = None
+        payload = None
+        started_at = datetime.now()
+        try:
+            payload = handler(request)
+        except sqlite3.Error as e:
+            error = e
+        except sqlite3.Warning as w:
+            warning = w
+        finally:
+            stopped_at = datetime.now()
+            result = SQLResult(started_at=started_at,
+                               stopped_at=stopped_at,
+                               error=error,
+                               warning=warning,
+                               payload=payload)
+            self._push_result(result)
+
+    def _push_result(self, result: SQLResult):
+        self._results_q.put(result)
+        self.event_generate(self.RESULT_AVAILABLE_EVENT)
+
+    def _handle_LoadSchema(self, request: Request.LoadSchema):
+        schema = {}
+        for table_name in iter_tables(self._db):
+            fields = list(self._db.execute(f"pragma table_info('{table_name}')"))
+            schema[table_name] = fields
+        return Schema(schema=schema)
+
+    def _handle_CloseDB(self, request: Request.CloseDB):
+        raise RuntimeError("should never be called")
+
+    def _handle_ViewTable(self, request: Request.ViewTable):
+        cursor = self._db.execute(f"SELECT * FROM {request.table_name}")
+        column_ids, column_names = get_column_ids(cursor)
+        rows = list(cursor)
+        return TableRows(table_name=request.table_name,
+                         rows=rows,
+                         offset=request.offset,
+                         limit=request.limit,
+                         column_ids=column_ids,
+                         column_names=column_names)
 
 def head(it, n=100):
     while n > 0:
@@ -43,6 +220,51 @@ def head(it, n=100):
 def get_selected_tab_index(notebook):
     widget_name = notebook.select()
     return notebook.index(widget_name)
+
+TABLE_VIEW_LIMIT = 100
+
+@dataclass
+class TableStatus:
+    loaded: bool = False
+    offset: int = 0
+    limit: int = TABLE_VIEW_LIMIT
+
+    def reset(self, keep_window=True):
+        self.loaded = False
+        if not keep_window:
+            self.offset = 0
+            self.limit = TABLE_VIEW_LIMIT
+
+class TablesStatus(abc.Mapping):
+
+    def __init__(self, table_names = None):
+        self._old_status = {}
+        if table_names is None:
+            table_names = []
+        self._status = {name:TableStatus() for name in table_names}
+        self.selected_tab_index = None
+
+    def all_loaded(self):
+        return all(t.loaded for t in self._status.values())
+
+    def add(self, table_name):
+        st = self._old_status.get(table_name, TableStatus())
+        st.reset(keep_window=True)
+        self._status[table_name] = st
+        return st
+
+    def clear(self):
+        self._old_status = self._status
+        self._status = {}
+
+    def __getitem__(self, item):
+        return self._status[item]
+
+    def __iter__(self):
+        return iter(self._status)
+
+    def __len__(self):
+        return len(self._status)
 
 class SchemaFrame(tk.Frame):
 
@@ -70,16 +292,15 @@ class SchemaFrame(tk.Frame):
     def _db(self):
         return self.master.db
 
-    def add_table(self, table_name):
+    def add_table(self, table_name, fields):
         table_row = (table_name, '', '', '', '')
         self._tree.insert('', 'end', table_name, values=table_row)
         self._format_row(table_row)
-        cursor = self._db.execute(f"pragma table_info('{table_name}')")
-        for row in cursor:
-            cid, name, vtype, notnuill, default_value, primary_key = row
+        for field in fields:
+            cid, name, vtype, notnuill, default_value, primary_key = field
             item_id = f"{table_name}.{name}"
             self._tree.insert(table_name, 'end', item_id,
-                              values=self._format_row(row[1:]))
+                              values=self._format_row(field[1:]))
         self._tree.item(table_name, open=True)
         self._tree.column("#0", width=10, stretch=False)
 
@@ -90,21 +311,6 @@ class SchemaFrame(tk.Frame):
         table_items = self._tree.get_children()
         for table_item in table_items:
             self._tree.delete(table_item)
-
-    def iter_items(self):
-        table_items = self._tree.get_children()
-        for table_item in table_items:
-            field_items = self._tree.get_children(table_item)
-            yield from field_items
-
-    def get_tables_and_fields(self):
-        tables = set()
-        fields = set()
-        for item in self.iter_items():
-            table, field = item.split(".")
-            tables.add(table)
-            fields.add(field)
-        return tables, fields
 
 class ColorSyntax:
 
@@ -263,6 +469,10 @@ class StatusBar(tk.Frame):
     def set_last_status_text(self):
         self.label['text'] = self._stack[-1]
 
+    def change_text(self, msg):
+        self._stack[-1] = msg
+        self.set_last_status_text()
+
     def start(self, interval=None, **options):
         self.progress.configure(**options)
         self.progress.start()
@@ -272,7 +482,6 @@ class Application(tk.Frame):
 
     NAME = "Pico SQL"
     COMMAND_LOG_HISTORY = 1000
-    DATA_VIEW_PREFETCH_LIMIT = 100
 
     def __init__(self, db_path=None, master=None):
         super().__init__(master)
@@ -380,8 +589,8 @@ class Application(tk.Frame):
         self.pane.columnconfigure(0, weight=1)
 
     def init_logic(self):
-        self.db = None
-        self.current_db_filename = None
+        self.sql = None
+        self.tables_status = TablesStatus()
         self.master.title(self.NAME)
         self.result_view_count = 0
 
@@ -397,15 +606,18 @@ class Application(tk.Frame):
 
     def destroy(self):
         super().destroy()
-        if self.db is not None:
-            self.db.close()
+        if self.sql is not None:
+            self.sql.close()
+            if self.sql.is_alive():
+                showerror(title="Thread error",
+                          message="Failed to close the database.")
         print("Good bye")
 
     def get_initial_open_dir(self):
-        if self.current_db_filename is None:
+        if self.sql is None:
             return os.path.expanduser("~")
         else:
-            return os.path.dirname(self.current_db_filename)
+            return os.path.dirname(self.sql.db_filename)
 
     def open_action(self):
         db_filename = askopenfilename(
@@ -421,7 +633,7 @@ class Application(tk.Frame):
         return True
 
     def close_action(self):
-        if self.current_db_filename is None:
+        if self.sql is None:
             return True
         is_yes = askyesno(
             title="Close DB confirmation",
@@ -432,26 +644,23 @@ class Application(tk.Frame):
         return True
 
     def open_db(self, db_filename):
-        if self.current_db_filename is not None:
-            raise RuntimeError(f"A database is already opened {self.current_db_filename}")
-        self.db = sqlite3.connect(db_filename)
+        if self.sql is not None:
+            raise RuntimeError(f"A database is already opened {self.sql.db_filename}")
+        self.sql = self.create_task(SQLRunner, db_filename,
+                                    process_result=self.on_sql_result)
+        self.sql.start()
         self.load_tables()
-        self.db_menu.entryconfigure("Close", state=tk.NORMAL)
-        self.db_menu.entryconfigure("Refresh", state=tk.NORMAL)
-        self.db_menu.entryconfigure("Run query", state=tk.NORMAL)
-        self.db_menu.entryconfigure("Run script...", state=tk.NORMAL)
-        self.console.enable()
-        self.current_db_filename = db_filename
-        self.master.title(f"{self.NAME} - {db_filename}")
-        self.statusbar.push("Ready to run query.")
 
     def close_db(self):
-        if self.current_db_filename is None:
+        if self.sql is None:
             return
-        self.db.close()
-        self.db = None
+        self.sql.close()
+        if self.sql.is_alive():
+            showerror(title="Thread error",
+                      message="Failed to close database.")
+            sys.exit(1)
+        self.sql = None
         self.master.title(self.NAME)
-        self.current_db_filename = None
         self.db_menu.entryconfigure("Close", state=tk.DISABLED)
         self.db_menu.entryconfigure("Refresh", state=tk.DISABLED)
         self.db_menu.entryconfigure("Run query", state=tk.DISABLED)
@@ -461,13 +670,70 @@ class Application(tk.Frame):
         self.unload_tables()
         self.clear_results_action()
 
+    def on_sql_result(self, event):
+        result = self.sql.get_result()
+        result_name = type(result.payload).__name__
+        handler_name = f"on_sql_{result_name}"
+        try:
+            handler = getattr(self, handler_name)
+        except AttributeError:
+            raise TypeError(f"unsupported SQL result type {result_name}")
+        else:
+            handler(result)
+
+    def on_sql_Schema(self, result):
+        schema = result.payload.schema
+        table_names = set()
+        field_names = set()
+        for table_name, fields in schema.items():
+            table_names.add(table_name)
+            for field in fields:
+                field_names.add(field[1])
+            self.schema.add_table(table_name, fields)
+            st = self.tables_status.add(table_name)
+            self.sql.put_request(
+                Request.ViewTable(table_name=table_name,
+                                  offset=st.offset,
+                                  limit=st.limit))
+        self.schema.finish_table_insertion()
+        self.tables.add(self.schema, text=self.schema.TAB_NAME)
+        self.console.color_syntax.set_database_names(table_names, field_names)
+        self.statusbar.change_text("Loading database tables...")
+
+    def on_sql_TableRows(self, result):
+        data = result.payload
+        table_view = self.create_table_view(data.column_ids,
+                                            data.column_names)
+        tree = table_view.nametowidget("!treeview")
+        format_row = RowFormatter(data.column_ids, data.column_names)
+        for row in data.rows:
+            tree.insert('', 'end', values=format_row(row))
+        format_row.configure_columns(tree)
+        self.tables.add(table_view, text=data.table_name)
+        st = self.tables_status[data.table_name]
+        st.loaded = True
+        st.offset = data.offset
+        st.limit = data.limit
+        self.statusbar.change_text(f"Table {data.table_name} loaded...")
+        if self.tables_status.all_loaded():
+            self.on_table_loaded()
+
+    def on_table_loaded(self):
+        if self.tables_status.selected_tab_index is not None \
+           and 0 <= self.tables_status.selected_tab_index <= self.tables.index('end'):
+            self.tables.select(self.tables_status.selected_tab_index)
+        self.db_menu.entryconfigure("Close", state=tk.NORMAL)
+        self.db_menu.entryconfigure("Refresh", state=tk.NORMAL)
+        self.db_menu.entryconfigure("Run query", state=tk.NORMAL)
+        self.db_menu.entryconfigure("Run script...", state=tk.NORMAL)
+        self.console.enable()
+        self.master.title(f"{self.NAME} - {self.sql.db_filename}")
+        self.statusbar.change_text("Ready to run query.")
+
     def refresh_action(self):
-        selected_tab_index = get_selected_tab_index(self.tables)
+        self.tables_status.selected_tab_index = get_selected_tab_index(self.tables)
         self.unload_tables()
         self.load_tables()
-        if selected_tab_index is not None \
-           and 0 <= selected_tab_index <= self.tables.index('end'):
-            self.tables.select(selected_tab_index)
 
     def is_result_view(self, tab_text):
         return tab_text.startswith("*")
@@ -489,36 +755,23 @@ class Application(tk.Frame):
             if tab_text == self.schema.TAB_NAME:
                 schema_tab_idx = tab_idx
         self.schema.clear()
+        self.tables_status.clear()
         if schema_tab_idx is not None:
             self.tables.forget(schema_tab_idx)
 
     def load_tables(self):
-        with self.statusbar.context("Loading tables..."):
-            tab_id = self.tables.add(self.schema, text=self.schema.TAB_NAME)
-            for table_name in iter_tables(self.db):
-                table_view = self.create_table_view_for_table(table_name)
-                self.tables.add(table_view, text=table_name)
-                self.schema.add_table(table_name)
-            self.schema.finish_table_insertion()
-            self.console.color_syntax.set_database_names(*self.schema.get_tables_and_fields())
+        self.statusbar.push("Loading database schema...")
+        self.sql.put_request(Request.LoadSchema())
 
-
-    def create_table_view_for_table(self, table_name):
-        cursor = self.db.execute(
-            f"SELECT * FROM {table_name}")
-        return self.create_table_view(cursor)
-
-    def create_table_view(self, cursor):
+    def create_table_view(self, column_ids, column_names):
         frame = tk.Frame()
-        column_ids, column_names = get_column_ids(cursor)
         tree = ttk.Treeview(frame, show="headings", selectmode='browse',
                             columns=column_ids)
         tree._selected_column = 0
         ### Scrollbars
         ys = ttk.Scrollbar(frame, orient='vertical', command=tree.yview)
         xs = ttk.Scrollbar(frame, orient='horizontal', command=tree.xview)
-        format_row = RowFormatter(column_ids, column_names)
-        tree['yscrollcommand'] = self.get_lazi_loader(cursor, format_row, tree, ys)
+        tree['yscrollcommand'] = ys.set
         tree['xscrollcommand'] = xs.set
         frame.rowconfigure(0, weight=1)
         frame.columnconfigure(0, weight=1)
@@ -698,60 +951,6 @@ class Application(tk.Frame):
 
     def create_task(self, task_class, *args, **kwargs):
         return task_class(*args, root=self.master, **kwargs)
-
-class Task(threading.Thread):
-
-    def __init__(self, root=None, **thread_kwargs):
-        super().__init__(**thread_kwargs)
-        self.root = root
-
-    def event_generate(self, *args, **kwargs):
-        self.root.event_generate(*args, **kwargs)
-
-    def bind(self, *args, **kwargs):
-        self.root.bind(*args, **kwargs)
-
-class ScriptRunner(Task):
-
-    ON_FINISH_EVENT = "<<ScriptRunnerFinished>>"
-
-    def __init__(self, db_filename, script_file, root=None, on_finish=None):
-        super().__init__(
-            root=root,
-            daemon=True, # Allow exit before finish => no commit
-            name='script_runner')
-        self.script_file = script_file
-        self.db_filename = db_filename
-        self.bind(self.ON_FINISH_EVENT, on_finish)
-
-    def run(self):
-        self.error = None
-        self.started_at = datetime.now()
-        db = sqlite3.connect(self.db_filename)
-        try:
-            script = self.script_file.read()
-            db.executescript(script)
-        except (sqlite3.Error, sqlite3.Warning) as e:
-            self.error = e
-        finally:
-            self.script_file.close()
-            db.close()
-            self.stopped_at = datetime.now()
-            self.event_generate(self.ON_FINISH_EVENT)
-
-    @property
-    def duration(self):
-        return self.stopped_at - self.started_at
-
-    @property
-    def script_filename(self):
-        return self.script_file.name
-
-    def has_error(self):
-        return isinstance(self.error, sqlite3.Error)
-
-    def has_warning(self):
-        return isinstance(self.error, sqlite3.Warning)
 
 def write_to_tk_text_log(log, msg, tags=()):
     numlines = int(log.index('end - 1 line').split('.')[0])
