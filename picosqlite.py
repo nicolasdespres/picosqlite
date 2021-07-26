@@ -55,7 +55,8 @@ class Request:
 
     @dataclass
     class RunScript:
-        script_pathname: str
+        script_filename: str
+        script: str
 
     @dataclass
     class CloseDB:
@@ -93,14 +94,16 @@ class TableRows:
 
 @dataclass
 class QueryResult:
-    rows: Rows
+    query: str
+    rows: Optional[Rows]
     truncated: bool
     column_ids: ColumnIDS
     column_names: ColumnNames
 
 @dataclass
-class ScriptResult:
-    pass
+class ScriptFinished:
+    script_filename: str
+    script: str
 
 class Task(threading.Thread):
 
@@ -209,6 +212,26 @@ class SQLRunner(Task):
                          column_ids=column_ids,
                          column_names=column_names)
 
+    def _handle_RunQuery(self, request: Request.RunQuery):
+        cursor = self._db.execute(request.query)
+        if cursor.description is None: # No data to fetch.
+            column_ids = column_names = None
+            rows = None
+            truncated = False
+        else:
+            column_ids, column_names = get_column_ids(cursor)
+            rows, truncated = eat_atmost(cursor)
+        return QueryResult(query=request.query,
+                           rows=rows,
+                           truncated=truncated,
+                           column_ids=column_ids,
+                           column_names=column_names)
+
+    def _handle_RunScript(self, request: Request.RunScript):
+        self._db.executescript(request.script)
+        return ScriptFinished(script_filename=request.script_filename,
+                              script=request.script)
+
 def head(it, n=100):
     while n > 0:
         try:
@@ -216,6 +239,20 @@ def head(it, n=100):
         except StopIteration:
             break
         n -= 1
+
+def eat_atmost(it, n=1000):
+    objects = []
+    for i, obj in enumerate(it):
+        if i >= n:
+            break
+        objects.append(obj)
+    try:
+        next(it)
+    except StopIteration:
+        truncated = False
+    else:
+        truncated = True
+    return objects, truncated
 
 def get_selected_tab_index(notebook):
     widget_name = notebook.select()
@@ -714,7 +751,7 @@ class Application(tk.Frame):
         st.loaded = True
         st.offset = data.offset
         st.limit = data.limit
-        self.statusbar.change_text(f"Table {data.table_name} loaded...")
+        self.statusbar.change_text(f"Table {data.table_name} loaded in {result.duration}...")
         if self.tables_status.all_loaded():
             self.on_table_loaded()
 
@@ -860,31 +897,38 @@ class Application(tk.Frame):
         self.show_text["state"] = tk.DISABLED
 
     def run_query_action(self):
-        with self.statusbar.context("Running query..."):
-            self.run_query(self.console.get_current_query())
+        self.statusbar.push("Running query...")
+        self.run_query(self.console.get_current_query())
 
     def run_query(self, query):
-        started_at = datetime.now()
-        self.log(f"\n-- Run at {started_at}\n")
-        self.log(query)
-        try:
-            cursor = self.db.execute(query)
-        except sqlite3.Error as e:
-            self.log_error(e)
-        except sqlite3.Warning as e:
-            self.log_warning(e)
+        self.sql.put_request(Request.RunQuery(query=query))
+
+    def on_sql_QueryResult(self, result):
+        self.log(f"\n-- Run at {result.started_at}\n")
+        self.log(result.payload.query)
+        if result.error is not None:
+            self.log_error(result.error)
+        if result.warning is not None:
+            self.log_warning(result.warning)
+        if result.payload.rows is None: # No data fetched.
+            # Refresh because it is probably an insert/delete operation.
+            self.refresh_action()
         else:
-            if cursor.description is None: # No data to fetch.
-                self.refresh_action()
-            else:
-                result_table = self.create_table_view(cursor)
-                self.tables.insert(0, result_table,
-                                   text=f"*Result-{self.result_view_count}")
-                self.result_view_count += 1
-                self.db_menu.entryconfigure("Clear results", state=tk.NORMAL)
-                self.tables.select(0)
-            stopped_at = datetime.now()
-            self.log(f"-- duration: {stopped_at - started_at}")
+            result_table = self.create_table_view(result.payload.column_ids,
+                                                  result.payload.column_names)
+            tree = result_table.nametowidget("!treeview")
+            format_row = RowFormatter(result.payload.column_ids,
+                                      result.payload.column_names)
+            for row in result.payload.rows:
+                tree.insert('', 'end', values=format_row(row))
+            format_row.configure_columns(tree)
+            self.tables.insert(0, result_table,
+                               text=f"*Result-{self.result_view_count}")
+            self.result_view_count += 1
+            self.db_menu.entryconfigure("Clear results", state=tk.NORMAL)
+            self.tables.select(0)
+        self.log(f"-- duration: {result.duration}")
+        self.statusbar.pop()
 
     def log(self, msg, tags=()):
         self.console.log(msg, tags=tags)
@@ -919,10 +963,9 @@ class Application(tk.Frame):
             showerror(title="File error", message=str(e))
             return False
         else:
-            self.script_runner = self.create_task(
-                ScriptRunner,
-                self.current_db_filename, script_file,
-                on_finish=self.on_script_finished)
+            self.sql.put_request(
+                Request.RunScript(script_filename=script_filename,
+                                  script=script_file.read()))
             self.statusbar.push(f"Running script {script_filename}...")
             self.statusbar.start(mode="indeterminate")
             self.console.disable()
@@ -931,16 +974,15 @@ class Application(tk.Frame):
             self.db_menu.entryconfigure("Run query", state=tk.DISABLED)
             self.db_menu.entryconfigure("Run script...", state=tk.DISABLED)
             self.db_menu.entryconfigure("Refresh", state=tk.DISABLED)
-            self.script_runner.start()
             return True
 
-    def on_script_finished(self, event):
+    def on_sql_ScriptFinished(self, result):
         self.statusbar.pop()
-        self.log(f"-- Run script '{self.script_runner.script_filename}' in {self.script_runner.duration}")
-        if self.script_runner.has_error():
-            self.log_error(self.script_runner.error)
-        elif self.script_runner.has_warning():
-            self.log_warning(self.script_runner.error)
+        self.log(f"-- Run script '{result.payload.script_filename}' in {result.duration}")
+        if result.error is not None:
+            self.log_error(result.error)
+        elif result.warning is not None:
+            self.log_warning(result.warning)
         self.refresh_action()
         self.console.enable()
         self.db_menu.entryconfigure("Open...", state=tk.NORMAL)
