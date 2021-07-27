@@ -521,6 +521,24 @@ class StatusBar(tk.Frame):
         self.progress.start()
         self.progress.grid(column=1, row=0, sticky="nse")
 
+class TableView(tk.Frame):
+
+    def __init__(self, master=None, on_treeview_selected=None):
+        super().__init__(master=master)
+        self.tree = ttk.Treeview(self, show="headings", selectmode='browse')
+        self.tree._selected_column = 0
+        ### Scrollbars
+        ys = ttk.Scrollbar(self, orient='vertical', command=self.tree.yview)
+        xs = ttk.Scrollbar(self, orient='horizontal', command=self.tree.xview)
+        self.tree['yscrollcommand'] = ys.set
+        self.tree['xscrollcommand'] = xs.set
+        self.rowconfigure(0, weight=1)
+        self.columnconfigure(0, weight=1)
+        self.tree.grid(column=0, row=0, sticky="nsew")
+        ys.grid(column=1, row=0, rowspan=2, sticky="nsw")
+        xs.grid(column=0, row=1, columnspan=2, sticky="ews")
+        self.tree.bind("<<TreeviewSelect>>", on_treeview_selected)
+
 class Application(tk.Frame):
 
     NAME = "Pico SQL"
@@ -749,11 +767,10 @@ class Application(tk.Frame):
 
     def on_sql_TableRows(self, result: TableRows):
         table_view = self.create_table_view()
-        tree = table_view.nametowidget("!treeview")
         format_row = RowFormatter(result.column_ids, result.column_names)
         for row in result.rows:
-            tree.insert('', 'end', values=format_row(row))
-        format_row.configure_columns(tree)
+            table_view.tree.insert('', 'end', values=format_row(row))
+        format_row.configure_columns(table_view.tree)
         self.tables.add(table_view, text=result.request.table_name)
         st = self.tables_status[result.request.table_name]
         st.loaded = True
@@ -810,21 +827,7 @@ class Application(tk.Frame):
         self.sql.put_request(Request.LoadSchema())
 
     def create_table_view(self):
-        frame = tk.Frame()
-        tree = ttk.Treeview(frame, show="headings", selectmode='browse')
-        tree._selected_column = 0
-        ### Scrollbars
-        ys = ttk.Scrollbar(frame, orient='vertical', command=tree.yview)
-        xs = ttk.Scrollbar(frame, orient='horizontal', command=tree.xview)
-        tree['yscrollcommand'] = ys.set
-        tree['xscrollcommand'] = xs.set
-        frame.rowconfigure(0, weight=1)
-        frame.columnconfigure(0, weight=1)
-        tree.grid(column=0, row=0, sticky="nsew")
-        ys.grid(column=1, row=0, rowspan=2, sticky="nsw")
-        xs.grid(column=0, row=1, columnspan=2, sticky="ews")
-        tree.bind("<<TreeviewSelect>>", self.on_view_row_changed)
-        return frame
+        return TableView(on_treeview_selected=self.on_view_row_changed)
 
     def get_lazi_loader(self, cursor, format_row, tree, yscrollbar):
         # TODO(Nicolas Despres): Discard loaded item to free memory and refetch
@@ -926,12 +929,11 @@ class Application(tk.Frame):
             self.refresh_action()
         else:
             result_table = self.create_table_view()
-            tree = result_table.nametowidget("!treeview")
             format_row = RowFormatter(result.column_ids,
                                       result.column_names)
             for row in result.rows:
-                tree.insert('', 'end', values=format_row(row))
-            format_row.configure_columns(tree)
+                result_table.tree.insert('', 'end', values=format_row(row))
+            format_row.configure_columns(result_table.tree)
             self.tables.insert(0, result_table,
                                text=f"*Result-{self.result_view_count}")
             self.result_view_count += 1
