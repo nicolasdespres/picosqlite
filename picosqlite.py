@@ -482,8 +482,7 @@ class TableView(tk.Frame):
 
     LIMIT = 100
 
-    def __init__(self, master=None, on_treeview_selected=None,
-                 fetcher=None):
+    def __init__(self, master=None, on_treeview_selected=None):
         super().__init__(master=master)
         self.tree = ttk.Treeview(self, show="headings", selectmode='browse')
         self.tree._selected_column = 0
@@ -491,11 +490,7 @@ class TableView(tk.Frame):
         self.ys = ttk.Scrollbar(self, orient='vertical',
                                 command=self.tree.yview)
         xs = ttk.Scrollbar(self, orient='horizontal', command=self.tree.xview)
-        self.fetcher = fetcher
-        if self.fetcher is None:
-            self.tree['yscrollcommand'] = self.ys.set
-        else:
-            self.tree['yscrollcommand'] = self.lazy_load
+        self.tree['yscrollcommand'] = self.ys.set
         self.tree['xscrollcommand'] = xs.set
         self.rowconfigure(0, weight=1)
         self.columnconfigure(0, weight=1)
@@ -503,18 +498,19 @@ class TableView(tk.Frame):
         self.ys.grid(column=1, row=0, rowspan=2, sticky="nsw")
         xs.grid(column=0, row=1, columnspan=2, sticky="ews")
         self.tree.bind("<<TreeviewSelect>>", on_treeview_selected)
+
+class NamedTableView(TableView):
+
+    def __init__(self, fetcher=None, **kwargs):
+        super().__init__(**kwargs)
+        self.fetcher = fetcher
+        self.tree['yscrollcommand'] = self.lazy_load
         self.tree.bind("<Configure>", self.on_tree_configure)
         font = nametofont(ttk.Style().lookup("Treeview", "font"))
         self.linespace = font.metrics("linespace")
         self.begin_offset = 0
         self.end_offset = 0 # excluded
         self.fetching = False
-
-    def append(self, result):
-        format_row = RowFormatter(result.column_ids, result.column_names)
-        for row in result.rows:
-            self.tree.insert('', 'end', values=format_row(row))
-        format_row.configure_columns(self.tree)
 
     @property
     def nb_view_items(self):
@@ -597,6 +593,18 @@ class Fetcher:
             Request.ViewTable(table_name=self.table_name,
                               offset=offset,
                               limit=limit))
+
+class ResultTableView(TableView):
+
+    def append(self, rows, column_ids, column_names, truncated):
+        if len(rows) == 0:
+            return
+        format_row = RowFormatter(column_ids, column_names)
+        for row in rows:
+            self.tree.insert('', 'end', values=format_row(row))
+        format_row.configure_columns(self.tree)
+        if truncated:
+            self.tree.insert('', 'end', values=["..."] * len(rows[0]))
 
 class Application(tk.Frame):
 
@@ -815,6 +823,7 @@ class Application(tk.Frame):
                 field_names.add(field[1])
             self.schema.add_table(table_name, fields)
             table_view = self.create_table_view(
+                NamedTableView,
                 fetcher=Fetcher(self, table_name))
             self.table_views[table_name] = table_view
             self.tables.add(table_view, text=table_name)
@@ -872,9 +881,9 @@ class Application(tk.Frame):
         self.statusbar.push("Loading database schema...")
         self.sql.put_request(Request.LoadSchema())
 
-    def create_table_view(self, **kwargs):
-        return TableView(on_treeview_selected=self.on_view_row_changed,
-                         **kwargs)
+    def create_table_view(self, table_type, **kwargs):
+        return table_type(on_treeview_selected=self.on_view_row_changed,
+                          **kwargs)
 
     def on_view_table_changed(self, event):
         tables_notebook = event.widget
@@ -961,8 +970,11 @@ class Application(tk.Frame):
             # Refresh because it is probably an insert/delete operation.
             self.refresh_action()
         else:
-            result_table = self.create_table_view()
-            result_table.append(result)
+            result_table = self.create_table_view(ResultTableView)
+            result_table.append(result.rows,
+                                result.column_ids,
+                                result.column_names,
+                                result.truncated)
             self.tables.insert(0, result_table,
                                text=f"*Result-{self.result_view_count}")
             self.result_view_count += 1
