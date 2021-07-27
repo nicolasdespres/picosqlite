@@ -211,7 +211,9 @@ class SQLRunner(Task):
 
     @handler(result_type=TableRows)
     def _handle_ViewTable(self, request: Request.ViewTable):
-        cursor = self._db.execute(f"SELECT * FROM {request.table_name}")
+        cursor = self._db.execute(
+            f"SELECT * FROM {request.table_name} "
+            f"LIMIT {request.limit} OFFSET {request.offset}")
         column_ids, column_names = get_column_ids(cursor)
         rows = list(cursor)
         return dict(rows=rows,
@@ -259,51 +261,6 @@ def eat_atmost(it, n=1000):
 def get_selected_tab_index(notebook):
     widget_name = notebook.select()
     return notebook.index(widget_name)
-
-TABLE_VIEW_LIMIT = 100
-
-@dataclass
-class TableStatus:
-    loaded: bool = False
-    offset: int = 0
-    limit: int = TABLE_VIEW_LIMIT
-
-    def reset(self, keep_window=True):
-        self.loaded = False
-        if not keep_window:
-            self.offset = 0
-            self.limit = TABLE_VIEW_LIMIT
-
-class TablesStatus(abc.Mapping):
-
-    def __init__(self, table_names = None):
-        self._old_status = {}
-        if table_names is None:
-            table_names = []
-        self._status = {name:TableStatus() for name in table_names}
-        self.selected_tab_index = None
-
-    def all_loaded(self):
-        return all(t.loaded for t in self._status.values())
-
-    def add(self, table_name):
-        st = self._old_status.get(table_name, TableStatus())
-        st.reset(keep_window=True)
-        self._status[table_name] = st
-        return st
-
-    def clear(self):
-        self._old_status = self._status
-        self._status = {}
-
-    def __getitem__(self, item):
-        return self._status[item]
-
-    def __iter__(self):
-        return iter(self._status)
-
-    def __len__(self):
-        return len(self._status)
 
 class SchemaFrame(tk.Frame):
 
@@ -523,27 +480,123 @@ class StatusBar(tk.Frame):
 
 class TableView(tk.Frame):
 
-    def __init__(self, master=None, on_treeview_selected=None):
+    LIMIT = 100
+
+    def __init__(self, master=None, on_treeview_selected=None,
+                 fetcher=None):
         super().__init__(master=master)
         self.tree = ttk.Treeview(self, show="headings", selectmode='browse')
         self.tree._selected_column = 0
         ### Scrollbars
-        ys = ttk.Scrollbar(self, orient='vertical', command=self.tree.yview)
+        self.ys = ttk.Scrollbar(self, orient='vertical',
+                                command=self.tree.yview)
         xs = ttk.Scrollbar(self, orient='horizontal', command=self.tree.xview)
-        self.tree['yscrollcommand'] = ys.set
+        self.fetcher = fetcher
+        if self.fetcher is None:
+            self.tree['yscrollcommand'] = self.ys.set
+        else:
+            self.tree['yscrollcommand'] = self.lazy_load
         self.tree['xscrollcommand'] = xs.set
         self.rowconfigure(0, weight=1)
         self.columnconfigure(0, weight=1)
         self.tree.grid(column=0, row=0, sticky="nsew")
-        ys.grid(column=1, row=0, rowspan=2, sticky="nsw")
+        self.ys.grid(column=1, row=0, rowspan=2, sticky="nsw")
         xs.grid(column=0, row=1, columnspan=2, sticky="ews")
         self.tree.bind("<<TreeviewSelect>>", on_treeview_selected)
+        self.tree.bind("<Configure>", self.on_tree_configure)
+        font = nametofont(ttk.Style().lookup("Treeview", "font"))
+        self.linespace = font.metrics("linespace")
+        self.begin_offset = 0
+        self.end_offset = 0 # excluded
+        self.fetching = False
 
     def append(self, result):
         format_row = RowFormatter(result.column_ids, result.column_names)
         for row in result.rows:
             self.tree.insert('', 'end', values=format_row(row))
         format_row.configure_columns(self.tree)
+
+    @property
+    def nb_view_items(self):
+        return self.end_offset - self.begin_offset
+
+    def insert(self, rows, column_ids, column_names, offset, limit):
+        ys_begin, ys_end = self.ys.get()
+        # print(f"DBG: insert {len(rows)} (asked {limit}) at {offset}; current=[{self.begin_offset}, {self.end_offset}]; visible=[{ys_begin}, {ys_end}]")
+        format_row = RowFormatter(column_ids, column_names)
+        visible_item = int(self.nb_view_items * ys_begin) + self.begin_offset
+        if offset == self.end_offset: # append to the end?
+            ### Insert new items at the end
+            for row in rows:
+                self.tree.insert('', 'end',
+                                 iid=self.end_offset,
+                                 values=format_row(row))
+                self.end_offset += 1
+            ### Delete exceeded items from the beginning.
+            while self.nb_view_items > self.limit:
+                self.tree.delete(self.begin_offset)
+                self.begin_offset += 1
+        elif offset + limit == self.begin_offset: # insert from the beginning?
+            ### Insert new items from the beginning
+            for row in reversed(rows):
+                self.begin_offset -= 1
+                self.tree.insert('', 0,
+                                 iid=self.begin_offset,
+                                 values=format_row(row))
+            ### Delete exceeded items at the end.
+            while self.nb_view_items > self.limit:
+                self.end_offset -= 1
+                self.tree.delete(self.end_offset)
+        else:
+            raise ValueError(f"wrong fetched window ! current=[{self.begin_offset}, {self.end_offset}]; fetched=[{offset}, {offset+limit}]")
+        format_row.configure_columns(self.tree)
+        # Prevent auto-scroll down after inserting items.
+        if not self.tree.exists(visible_item):
+            # Scrollbar lower bound may lag during fast scrolling.
+            visible_item = self.begin_offset
+        self.tree.see(visible_item)
+        self.fetching = False
+
+    def lazy_load(self, begin_index, end_index):
+        limit = self.limit - self.nb_view_items
+        if limit < self.inc_limit:
+            limit = self.inc_limit
+        if self.begin_offset > 0 and float(begin_index) <= 0.2:
+            # print("DBG: fetch down")
+            offset = self.begin_offset - limit
+            if offset < 0:
+                offset = 0
+            limit = self.begin_offset - offset
+            self.fetch(offset, limit)
+        if float(end_index) >= 0.8:
+            # print("DBG: fetch up")
+            self.fetch(self.end_offset, limit)
+        return self.ys.set(begin_index, end_index)
+
+    def on_tree_configure(self, event):
+        self.limit = round(event.height / self.linespace) * 4
+        self.inc_limit = self.limit // 4
+
+    def fetch(self, offset, limit):
+        # Prevent interleaved fetch requests.
+        if self.fetching:
+            return
+        self.fetching = True
+        # print(f"DBG: fetch {offset}, {limit}")
+        self.fetcher(offset, limit)
+
+class Fetcher:
+
+    def __init__(self, app, table_name):
+        self.table_name = table_name
+        self.app = app
+
+    def __call__(self, offset, limit):
+        self.app.statusbar.push(f"Loading {limit} records from {offset} in table '{self.table_name}'...")
+        self.app.sql.put_request(
+            Request.ViewTable(table_name=self.table_name,
+                              offset=offset,
+                              limit=limit))
 
 class Application(tk.Frame):
 
@@ -660,9 +713,10 @@ class Application(tk.Frame):
 
     def init_logic(self):
         self.sql = None
-        self.tables_status = TablesStatus()
+        self.table_views = {}
         self.master.title(self.NAME)
         self.result_view_count = 0
+        self.selected_table_index = None
 
     def about_action(self):
         dlg = Message(self,
@@ -754,39 +808,22 @@ class Application(tk.Frame):
 
     def on_sql_Schema(self, result: Schema):
         schema = result.schema
-        table_names = set()
         field_names = set()
+        self.tables.add(self.schema, text=self.schema.TAB_NAME)
         for table_name, fields in schema.items():
-            table_names.add(table_name)
             for field in fields:
                 field_names.add(field[1])
             self.schema.add_table(table_name, fields)
-            st = self.tables_status.add(table_name)
-            self.sql.put_request(
-                Request.ViewTable(table_name=table_name,
-                                  offset=st.offset,
-                                  limit=st.limit))
+            table_view = self.create_table_view(
+                fetcher=Fetcher(self, table_name))
+            self.table_views[table_name] = table_view
+            self.tables.add(table_view, text=table_name)
         self.schema.finish_table_insertion()
-        self.tables.add(self.schema, text=self.schema.TAB_NAME)
-        self.console.color_syntax.set_database_names(table_names, field_names)
-        self.statusbar.change_text("Loading database tables...")
-
-    def on_sql_TableRows(self, result: TableRows):
-        table_view = self.create_table_view()
-        table_view.append(result)
-        self.tables.add(table_view, text=result.request.table_name)
-        st = self.tables_status[result.request.table_name]
-        st.loaded = True
-        st.offset = result.request.offset
-        st.limit = result.request.limit
-        self.statusbar.change_text(f"Table {result.request.table_name} loaded in {result.duration}...")
-        if self.tables_status.all_loaded():
-            self.on_table_loaded()
-
-    def on_table_loaded(self):
-        if self.tables_status.selected_tab_index is not None \
-           and 0 <= self.tables_status.selected_tab_index <= self.tables.index('end'):
-            self.tables.select(self.tables_status.selected_tab_index)
+        self.console.color_syntax.set_database_names(self.table_views.keys(),
+                                                     field_names)
+        if self.selected_table_index is not None \
+           and 0 <= self.selected_table_index <= self.tables.index('end'):
+            self.tables.select(self.selected_table_index)
         self.db_menu.entryconfigure("Close", state=tk.NORMAL)
         self.db_menu.entryconfigure("Refresh", state=tk.NORMAL)
         self.db_menu.entryconfigure("Run query", state=tk.NORMAL)
@@ -796,8 +833,14 @@ class Application(tk.Frame):
         self.master.title(f"{self.NAME} - {self.sql.db_filename}")
         self.statusbar.change_text("Ready to run query.")
 
+    def on_sql_TableRows(self, result: TableRows):
+        table_view = self.table_views[result.request.table_name]
+        table_view.insert(result.rows, result.column_ids, result.column_names,
+                          result.request.offset, result.request.limit)
+        self.statusbar.pop()
+
     def refresh_action(self):
-        self.tables_status.selected_tab_index = get_selected_tab_index(self.tables)
+        self.selected_table_index = get_selected_tab_index(self.tables)
         self.unload_tables()
         self.load_tables()
 
@@ -821,7 +864,7 @@ class Application(tk.Frame):
             if tab_text == self.schema.TAB_NAME:
                 schema_tab_idx = tab_idx
         self.schema.clear()
-        self.tables_status.clear()
+        self.table_views.clear()
         if schema_tab_idx is not None:
             self.tables.forget(schema_tab_idx)
 
@@ -829,27 +872,9 @@ class Application(tk.Frame):
         self.statusbar.push("Loading database schema...")
         self.sql.put_request(Request.LoadSchema())
 
-    def create_table_view(self):
-        return TableView(on_treeview_selected=self.on_view_row_changed)
-
-    def get_lazi_loader(self, cursor, format_row, tree, yscrollbar):
-        # TODO(Nicolas Despres): Discard loaded item to free memory and refetch
-        #  using SELECT OFFSET. Can be done for regular table view but not
-        #  for result view.
-        ### Fetch the first hundred rows.
-        def fetch_more():
-            format_row.reset()
-            for row in head(cursor, self.DATA_VIEW_PREFETCH_LIMIT):
-                tree.insert('', 'end', values=format_row(row))
-            format_row.configure_columns(tree)
-        fetch_more()
-        ### Lazily fetch item from the cursor as user scroll down the view.
-        def lazi_load(begin_index, end_index):
-            # print(f"asked to load item between {begin_index} and {end_index}")
-            if end_index == "1.0":
-                fetch_more()
-            return yscrollbar.set(begin_index, end_index)
-        return lazi_load
+    def create_table_view(self, **kwargs):
+        return TableView(on_treeview_selected=self.on_view_row_changed,
+                         **kwargs)
 
     def on_view_table_changed(self, event):
         tables_notebook = event.widget
