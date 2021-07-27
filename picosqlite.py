@@ -539,6 +539,12 @@ class TableView(tk.Frame):
         xs.grid(column=0, row=1, columnspan=2, sticky="ews")
         self.tree.bind("<<TreeviewSelect>>", on_treeview_selected)
 
+    def append(self, result):
+        format_row = RowFormatter(result.column_ids, result.column_names)
+        for row in result.rows:
+            self.tree.insert('', 'end', values=format_row(row))
+        format_row.configure_columns(self.tree)
+
 class Application(tk.Frame):
 
     NAME = "Pico SQL"
@@ -767,10 +773,7 @@ class Application(tk.Frame):
 
     def on_sql_TableRows(self, result: TableRows):
         table_view = self.create_table_view()
-        format_row = RowFormatter(result.column_ids, result.column_names)
-        for row in result.rows:
-            table_view.tree.insert('', 'end', values=format_row(row))
-        format_row.configure_columns(table_view.tree)
+        table_view.append(result)
         self.tables.add(table_view, text=result.request.table_name)
         st = self.tables_status[result.request.table_name]
         st.loaded = True
@@ -934,11 +937,7 @@ class Application(tk.Frame):
             self.refresh_action()
         else:
             result_table = self.create_table_view()
-            format_row = RowFormatter(result.column_ids,
-                                      result.column_names)
-            for row in result.rows:
-                result_table.tree.insert('', 'end', values=format_row(row))
-            format_row.configure_columns(result_table.tree)
+            result_table.append(result)
             self.tables.insert(0, result_table,
                                text=f"*Result-{self.result_view_count}")
             self.result_view_count += 1
