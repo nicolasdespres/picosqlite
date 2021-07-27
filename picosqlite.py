@@ -748,8 +748,7 @@ class Application(tk.Frame):
         self.statusbar.change_text("Loading database tables...")
 
     def on_sql_TableRows(self, result: TableRows):
-        table_view = self.create_table_view(result.column_ids,
-                                            result.column_names)
+        table_view = self.create_table_view(result.column_ids)
         tree = table_view.nametowidget("!treeview")
         format_row = RowFormatter(result.column_ids, result.column_names)
         for row in result.rows:
@@ -810,7 +809,7 @@ class Application(tk.Frame):
         self.statusbar.push("Loading database schema...")
         self.sql.put_request(Request.LoadSchema())
 
-    def create_table_view(self, column_ids, column_names):
+    def create_table_view(self, column_ids):
         frame = tk.Frame()
         tree = ttk.Treeview(frame, show="headings", selectmode='browse',
                             columns=column_ids)
@@ -927,8 +926,7 @@ class Application(tk.Frame):
             # Refresh because it is probably an insert/delete operation.
             self.refresh_action()
         else:
-            result_table = self.create_table_view(result.column_ids,
-                                                  result.column_names)
+            result_table = self.create_table_view(result.column_ids)
             tree = result_table.nametowidget("!treeview")
             format_row = RowFormatter(result.column_ids,
                                       result.column_names)
