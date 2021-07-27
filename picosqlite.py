@@ -748,7 +748,7 @@ class Application(tk.Frame):
         self.statusbar.change_text("Loading database tables...")
 
     def on_sql_TableRows(self, result: TableRows):
-        table_view = self.create_table_view(result.column_ids)
+        table_view = self.create_table_view()
         tree = table_view.nametowidget("!treeview")
         format_row = RowFormatter(result.column_ids, result.column_names)
         for row in result.rows:
@@ -809,10 +809,9 @@ class Application(tk.Frame):
         self.statusbar.push("Loading database schema...")
         self.sql.put_request(Request.LoadSchema())
 
-    def create_table_view(self, column_ids):
+    def create_table_view(self):
         frame = tk.Frame()
-        tree = ttk.Treeview(frame, show="headings", selectmode='browse',
-                            columns=column_ids)
+        tree = ttk.Treeview(frame, show="headings", selectmode='browse')
         tree._selected_column = 0
         ### Scrollbars
         ys = ttk.Scrollbar(frame, orient='vertical', command=tree.yview)
@@ -926,7 +925,7 @@ class Application(tk.Frame):
             # Refresh because it is probably an insert/delete operation.
             self.refresh_action()
         else:
-            result_table = self.create_table_view(result.column_ids)
+            result_table = self.create_table_view()
             tree = result_table.nametowidget("!treeview")
             format_row = RowFormatter(result.column_ids,
                                       result.column_names)
@@ -1104,6 +1103,7 @@ class RowFormatter:
     def configure_columns(self, tree):
         if not self.has_formatted:
             return
+        tree.configure(columns=self.column_ids)
         for i, (column_id, column_name) in enumerate(zip(self.column_ids, self.column_names)):
             tree.column(column_id,
                         width=min(self.maxsizes[i], 512),
