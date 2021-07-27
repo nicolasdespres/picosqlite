@@ -853,22 +853,27 @@ class Application(tk.Frame):
         selected_tab = tables_notebook.select()
         if not selected_tab:
             return
-        tree = tables_notebook.nametowidget(selected_tab + ".!treeview")
-        self.update_shown_row(tree)
+        table_view = tables_notebook.nametowidget(selected_tab)
+        if isinstance(table_view, SchemaFrame):
+            self.reset_shown_value()
+            return
+        self.update_shown_row(table_view.tree)
 
     def on_view_row_changed(self, event):
         tree = event.widget
         self.update_shown_row(tree)
 
+    def reset_shown_value(self):
+        self.detailed_view._current_tree = None
+        self.detailed_view._current_item_id = None
+        self.columns_list.set([])
+        self.show_value('')
+
     def update_shown_row(self, tree):
         item_id = tree.focus()
         if not item_id:
-            # Reset shown value
-            self.detailed_view._current_tree = None
-            self.detailed_view._current_item_id = None
+            self.reset_shown_value()
             tree._selected_column = 0
-            self.columns_list.set([])
-            self.show_value('')
             return
         if self.detailed_view._current_tree is not tree:
             self.columns_list.set(tree['columns'])
