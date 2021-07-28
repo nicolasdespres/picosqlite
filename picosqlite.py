@@ -463,6 +463,7 @@ class StatusBar(tk.Frame):
     @contextmanager
     def context(self, message):
         self.push(message)
+        self.update()
         try:
             yield
         finally:
