@@ -1034,6 +1034,7 @@ class Application(tk.Frame):
 
     def run_query_action(self):
         self.statusbar.push("Running query...")
+        self.statusbar.start(mode="indeterminate")
         self.run_query(self.console.get_current_query())
         self.console.run_query_bt.configure(
             text="Stop", command=self.interrupt_action)
