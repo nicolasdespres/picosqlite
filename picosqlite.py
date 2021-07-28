@@ -708,6 +708,7 @@ class DBMenu:
     CLOSE = "Close"
     REFRESH = "Refresh"
     RUN_QUERY = "Run query"
+    CLEAR_RESULT = "Clear current result"
     CLEAR_ALL_RESULTS = "Clear all results"
     RUN_SCRIPT = "Run script..."
     INTERRUPT = "Interrupt"
@@ -800,9 +801,12 @@ class Application(tk.Frame):
                                  command=self.run_query_action,
                                  accelerator="F3",
                                  state=tk.DISABLED)
-        self.db_menu.add_command(label=DBMenu.CLEAR_ALL_RESULTS,
-                                 command=self.clear_results_action,
+        self.db_menu.add_command(label=DBMenu.CLEAR_RESULT,
+                                 command=self.clear_result_action,
                                  accelerator="F7",
+                                 state=tk.DISABLED)
+        self.db_menu.add_command(label=DBMenu.CLEAR_ALL_RESULTS,
+                                 command=self.clear_all_results_action,
                                  state=tk.DISABLED)
         self.db_menu.add_command(label=DBMenu.RUN_SCRIPT,
                                  command=self.run_script_action,
@@ -939,7 +943,7 @@ class Application(tk.Frame):
         self.console.disable()
         self.statusbar.pop()
         self.unload_tables()
-        self.clear_results_action()
+        self.clear_all_results_action()
         self.last_refreshed_at = None
 
     def safely_close_db(self):
@@ -1081,6 +1085,9 @@ class Application(tk.Frame):
         selected_tab = tables_notebook.select()
         if not selected_tab:
             return
+        self.db_menu.entryconfigure(
+            DBMenu.CLEAR_RESULT,
+            state=tk.NORMAL if self.is_result_view_tab(selected_tab) else tk.DISABLED)
         table_view = tables_notebook.nametowidget(selected_tab)
         if isinstance(table_view, SchemaFrame):
             self.reset_shown_value()
@@ -1167,6 +1174,8 @@ class Application(tk.Frame):
             self.tables.insert(0, result_table,
                                text=f"*Result-{self.result_view_count}")
             self.result_view_count += 1
+            self.db_menu.entryconfigure(DBMenu.CLEAR_RESULT,
+                                        state=tk.NORMAL)
             self.db_menu.entryconfigure(DBMenu.CLEAR_ALL_RESULTS,
                                         state=tk.NORMAL)
             self.tables.select(0)
@@ -1202,7 +1211,14 @@ class Application(tk.Frame):
         if result.internal_error is not None:
             self.log_internal_error(*result.internal_error)
 
-    def clear_results_action(self):
+    def clear_result_action(self):
+        tab_idx = self.tables.select()
+        if not tab_idx: # No tab selected.
+            return
+        if self.is_result_view_tab(tab_idx):
+            self.tables.forget(tab_idx)
+
+    def clear_all_results_action(self):
         """Remove all result tabs."""
         for tab_idx in self.tables.tabs():
             if self.is_result_view_tab(tab_idx):
