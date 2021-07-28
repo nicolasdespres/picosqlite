@@ -1249,6 +1249,8 @@ class Application(tk.Frame):
         self.db_menu.entryconfigure(DBMenu.CLEAR_ALL_RESULTS, state=tk.DISABLED)
 
     def run_script_action(self):
+        if self.sql is None:
+            return
         script_filename = askopenfilename(
             title="SQLite script file",
             filetypes=[("SQL script", ".sql")],
@@ -1256,6 +1258,15 @@ class Application(tk.Frame):
             parent=self)
         if not script_filename:
             return False
+        if self.sql.in_transaction:
+            ans = askquestion(
+                parent=self,
+                title="Commit confirmation",
+                message=\
+                "You are in the middle of a transaction.\n\n"\
+                "Do you want to commit your changes?")
+            if ans == 'no':
+                return False
         return self.run_script(script_filename)
 
     def run_script(self, script_filename):
