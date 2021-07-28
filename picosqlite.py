@@ -550,6 +550,16 @@ class TableView(tk.Frame):
 
 class NamedTableView(TableView):
 
+    @dataclass
+    class State:
+        begin_offset: int
+        end_offset: int
+        visible_item: int
+
+        @property
+        def is_empty(self):
+            return self.begin_offset == 0 and self.end_offset == 0
+
     def __init__(self, fetcher=None, **kwargs):
         super().__init__(**kwargs)
         self.fetcher = fetcher
@@ -560,16 +570,29 @@ class NamedTableView(TableView):
         self.begin_offset = 0
         self.end_offset = 0 # excluded
         self.fetching = False
+        self.previous_visible_item = None
 
     @property
     def nb_view_items(self):
         return self.end_offset - self.begin_offset
 
+    def get_visible_item(self):
+        ys_begin, ys_end = self.ys.get()
+        return int(self.nb_view_items * ys_begin) + self.begin_offset
+
     def insert(self, rows, column_ids, column_names, offset, limit):
         ys_begin, ys_end = self.ys.get()
-        # print(f"DBG: insert {len(rows)} (asked {limit}) at {offset}; current=[{self.begin_offset}, {self.end_offset}]; visible=[{ys_begin}, {ys_end}]")
+        # print(f"DBG: insert into {self.fetcher.table_name} {len(rows)} (asked {limit}) at {offset}; current=[{self.begin_offset}, {self.end_offset}]; visible=[{ys_begin}, {ys_end}]")
         format_row = RowFormatter(column_ids, column_names)
-        visible_item = int(self.nb_view_items * ys_begin) + self.begin_offset
+        if self.begin_offset == 0 and self.end_offset == 0:
+            assert self.nb_view_items == 0
+            self.begin_offset = offset
+            self.end_offset = offset
+        if self.previous_visible_item is not None:
+            visible_item = self.previous_visible_item
+            self.previous_visible_item = None
+        else:
+            visible_item = self.get_visible_item()
         if offset == self.end_offset: # append to the end?
             ### Insert new items at the end
             for row in rows:
@@ -596,13 +619,15 @@ class NamedTableView(TableView):
             raise ValueError(f"wrong fetched window ! current=[{self.begin_offset}, {self.end_offset}]; fetched=[{offset}, {offset+limit}]")
         format_row.configure_columns(self.tree)
         # Prevent auto-scroll down after inserting items.
-        if not self.tree.exists(visible_item):
-            # Scrollbar lower bound may lag during fast scrolling.
-            visible_item = self.begin_offset
-        self.tree.see(visible_item)
+        if self.nb_view_items > 0:
+            if not self.tree.exists(visible_item):
+                # Scrollbar lower bound may lag during fast scrolling.
+                visible_item = int(self.nb_view_items * 3/8) + self.begin_offset
+            self.tree.see(visible_item)
         self.fetching = False
 
     def lazy_load(self, begin_index, end_index):
+        # print(f"DBG: lazy_load({begin_index}, {end_index})")
         limit = self.limit - self.nb_view_items
         if limit < self.inc_limit:
             limit = self.inc_limit
@@ -619,7 +644,11 @@ class NamedTableView(TableView):
         return self.ys.set(begin_index, end_index)
 
     def on_tree_configure(self, event):
+        # print("DBG: on_tree_configure")
         self.limit = round(event.height / self.linespace) * 4
+        self._update_inc_limit()
+
+    def _update_inc_limit(self):
         self.inc_limit = self.limit // 4
 
     def fetch(self, offset, limit):
@@ -629,6 +658,27 @@ class NamedTableView(TableView):
         self.fetching = True
         # print(f"DBG: fetch {offset}, {limit}")
         self.fetcher(offset, limit)
+
+    def save_state(self):
+        return self.State(begin_offset=self.begin_offset,
+                          end_offset=self.end_offset,
+                          visible_item=self.get_visible_item())
+
+    def restore_state(self, state):
+        if state.is_empty:
+            return
+        # print("DBG: restore_state", repr(state))
+        self.clear_all()
+        self.previous_visible_item = state.visible_item
+        self.limit = state.end_offset - state.begin_offset
+        self._update_inc_limit()
+        self.fetch(state.begin_offset, self.limit)
+
+    def clear_all(self):
+        assert self.end_offset >= self.begin_offset
+        while self.end_offset > self.begin_offset:
+            self.end_offset -= 1
+            self.tree.delete(self.end_offset)
 
 class Fetcher:
 
@@ -774,6 +824,7 @@ class Application(tk.Frame):
     def init_logic(self):
         self.sql = None
         self.table_views = {}
+        self.table_view_saved_states = {}
         self.master.title(self.NAME)
         self.result_view_count = 0
         self.selected_table_index = None
@@ -927,12 +978,17 @@ class Application(tk.Frame):
                 fetcher=Fetcher(self, table_name))
             self.table_views[table_name] = table_view
             self.tables.add(table_view, text=table_name)
+            if table_name in self.table_view_saved_states:
+                table_view.restore_state(
+                    self.table_view_saved_states[table_name])
         self.schema.finish_table_insertion()
         self.console.color_syntax.set_database_names(self.table_views.keys(),
                                                      field_names)
         if self.selected_table_index is not None \
            and 0 <= self.selected_table_index <= self.tables.index('end'):
             self.tables.select(self.selected_table_index)
+            self.selected_table_index = None
+        self.table_view_saved_states = {}
         self.db_menu.entryconfigure("Close", state=tk.NORMAL)
         self.db_menu.entryconfigure("Refresh", state=tk.NORMAL)
         self.db_menu.entryconfigure("Run query", state=tk.NORMAL)
@@ -963,6 +1019,10 @@ class Application(tk.Frame):
 
     def refresh_action(self):
         self.selected_table_index = get_selected_tab_index(self.tables)
+        self.table_view_saved_states = {
+            n:tv.save_state()
+            for n, tv in self.table_views.items()
+        }
         self.unload_tables()
         self.load_tables()
         if self.sql is not None:
