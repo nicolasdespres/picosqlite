@@ -703,6 +703,16 @@ class ResultTableView(TableView):
         if truncated:
             self.tree.insert('', 'end', values=["..."] * len(rows[0]))
 
+class DBMenu:
+    OPEN = "Open..."
+    CLOSE = "Close"
+    REFRESH = "Refresh"
+    RUN_QUERY = "Run query"
+    CLEAR_RESULTS = "Clear results"
+    RUN_SCRIPT = "Run script..."
+    INTERRUPT = "Interrupt"
+    EXIT = "Exit"
+
 class Application(tk.Frame):
 
     NAME = "Pico SQL"
@@ -776,32 +786,33 @@ class Application(tk.Frame):
 
         self.db_menu = tk.Menu(self.menubar)
         self.menubar.add_cascade(label="Database", menu=self.db_menu)
-        self.db_menu.add_command(label="Open...", command=self.open_action,
+        self.db_menu.add_command(label=DBMenu.OPEN, command=self.open_action,
                                  accelerator="F2")
-        self.db_menu.add_command(label="Close",
+        self.db_menu.add_command(label=DBMenu.CLOSE,
                                  command=self.close_action,
                                  state=tk.DISABLED)
         self.db_menu.add_separator()
-        self.db_menu.add_command(label="Refresh", command=self.refresh_action,
+        self.db_menu.add_command(label=DBMenu.REFRESH,
+                                 command=self.refresh_action,
                                  accelerator="F5",
                                  state=tk.DISABLED)
-        self.db_menu.add_command(label="Run query",
+        self.db_menu.add_command(label=DBMenu.RUN_QUERY,
                                  command=self.run_query_action,
                                  accelerator="F3",
                                  state=tk.DISABLED)
-        self.db_menu.add_command(label="Clear results",
+        self.db_menu.add_command(label=DBMenu.CLEAR_RESULTS,
                                  command=self.clear_results_action,
                                  accelerator="F7",
                                  state=tk.DISABLED)
-        self.db_menu.add_command(label="Run script...",
+        self.db_menu.add_command(label=DBMenu.RUN_SCRIPT,
                                  command=self.run_script_action,
                                  state=tk.DISABLED)
-        self.db_menu.add_command(label="Interrupt",
+        self.db_menu.add_command(label=DBMenu.INTERRUPT,
                                  command=self.interrupt_action,
                                  accelerator="F12",
                                  state=tk.DISABLED)
         self.db_menu.add_separator()
-        self.db_menu.add_command(label="Exit", command=self.exit_action)
+        self.db_menu.add_command(label=DBMenu.EXIT, command=self.exit_action)
 
         self.help_menu = tk.Menu(self.menubar)
         self.menubar.add_cascade(label="Help", menu=self.help_menu)
@@ -920,11 +931,11 @@ class Application(tk.Frame):
         if not self.safely_close_db():
             return
         self.master.title(self.NAME)
-        self.db_menu.entryconfigure("Close", state=tk.DISABLED)
-        self.db_menu.entryconfigure("Refresh", state=tk.DISABLED)
-        self.db_menu.entryconfigure("Run query", state=tk.DISABLED)
-        self.db_menu.entryconfigure("Run script...", state=tk.DISABLED)
-        self.db_menu.entryconfigure("Interrupt", state=tk.DISABLED)
+        self.db_menu.entryconfigure(DBMenu.CLOSE, state=tk.DISABLED)
+        self.db_menu.entryconfigure(DBMenu.REFRESH, state=tk.DISABLED)
+        self.db_menu.entryconfigure(DBMenu.RUN_QUERY, state=tk.DISABLED)
+        self.db_menu.entryconfigure(DBMenu.RUN_SCRIPT, state=tk.DISABLED)
+        self.db_menu.entryconfigure(DBMenu.INTERRUPT, state=tk.DISABLED)
         self.console.disable()
         self.statusbar.pop()
         self.unload_tables()
@@ -987,11 +998,11 @@ class Application(tk.Frame):
             self.tables.select(self.selected_table_index)
             self.selected_table_index = None
         self.table_view_saved_states = {}
-        self.db_menu.entryconfigure("Close", state=tk.NORMAL)
-        self.db_menu.entryconfigure("Refresh", state=tk.NORMAL)
-        self.db_menu.entryconfigure("Run query", state=tk.NORMAL)
-        self.db_menu.entryconfigure("Run script...", state=tk.NORMAL)
-        self.db_menu.entryconfigure("Interrupt", state=tk.DISABLED)
+        self.db_menu.entryconfigure(DBMenu.CLOSE, state=tk.NORMAL)
+        self.db_menu.entryconfigure(DBMenu.REFRESH, state=tk.NORMAL)
+        self.db_menu.entryconfigure(DBMenu.RUN_QUERY, state=tk.NORMAL)
+        self.db_menu.entryconfigure(DBMenu.RUN_SCRIPT, state=tk.NORMAL)
+        self.db_menu.entryconfigure(DBMenu.INTERRUPT, state=tk.DISABLED)
         self.console.enable()
         self.master.title(f"{self.NAME} - {self.sql.db_filename}")
         self.statusbar.change_text("Ready to run query.")
@@ -1156,7 +1167,7 @@ class Application(tk.Frame):
             self.tables.insert(0, result_table,
                                text=f"*Result-{self.result_view_count}")
             self.result_view_count += 1
-            self.db_menu.entryconfigure("Clear results", state=tk.NORMAL)
+            self.db_menu.entryconfigure(DBMenu.CLEAR_RESULTS, state=tk.NORMAL)
             self.tables.select(0)
         self.log(f"-- duration: {result.duration}")
         self.console.run_query_bt.configure(
@@ -1196,7 +1207,7 @@ class Application(tk.Frame):
             if self.is_result_view_tab(tab_idx):
                 self.tables.forget(tab_idx)
         self.result_view_count = 0
-        self.db_menu.entryconfigure("Clear results", state=tk.DISABLED)
+        self.db_menu.entryconfigure(DBMenu.CLEAR_RESULTS, state=tk.DISABLED)
 
     def run_script_action(self):
         script_filename = askopenfilename(
@@ -1232,17 +1243,17 @@ class Application(tk.Frame):
 
     def enable_sql_execution_state(self):
         self.console.disable()
-        self.db_menu.entryconfigure("Run query", state=tk.DISABLED)
-        self.db_menu.entryconfigure("Run script...", state=tk.DISABLED)
-        self.db_menu.entryconfigure("Refresh", state=tk.DISABLED)
-        self.db_menu.entryconfigure("Interrupt", state=tk.NORMAL)
+        self.db_menu.entryconfigure(DBMenu.RUN_QUERY, state=tk.DISABLED)
+        self.db_menu.entryconfigure(DBMenu.RUN_SCRIPT, state=tk.DISABLED)
+        self.db_menu.entryconfigure(DBMenu.REFRESH, state=tk.DISABLED)
+        self.db_menu.entryconfigure(DBMenu.INTERRUPT, state=tk.NORMAL)
 
     def disable_sql_execution_state(self):
         self.console.enable()
-        self.db_menu.entryconfigure("Run query", state=tk.NORMAL)
-        self.db_menu.entryconfigure("Run script...", state=tk.NORMAL)
-        self.db_menu.entryconfigure("Refresh", state=tk.NORMAL)
-        self.db_menu.entryconfigure("Interrupt", state=tk.DISABLED)
+        self.db_menu.entryconfigure(DBMenu.RUN_QUERY, state=tk.NORMAL)
+        self.db_menu.entryconfigure(DBMenu.RUN_SCRIPT, state=tk.NORMAL)
+        self.db_menu.entryconfigure(DBMenu.REFRESH, state=tk.NORMAL)
+        self.db_menu.entryconfigure(DBMenu.INTERRUPT, state=tk.DISABLED)
 
     def create_task(self, task_class, *args, **kwargs):
         return task_class(*args, root=self.master, **kwargs)
