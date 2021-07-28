@@ -360,7 +360,7 @@ class ColorSyntax:
 
     SQL_KEYWORDS = (
         "ADD", "ALL", "ALTER", "AND", "ANY", "AS", "ASC", "BACKUP",
-        "BETWEEN", "BY", "CASE", "CHECK", "COLUMN", "COMMIT", "CONSTRAINT",
+        "BETWEEN", "BY", "CASE", "CHECK", "COLUMN", "CONSTRAINT",
         "CREATE", "DATABASE", "DEFAULT", "DELETE", "DESC", "DISTINCT",
         "DROP", "EXEC", "EXISTS", "FOREIGN", "FROM", "FULL", "GROUP",
         "HAVING", "IN", "INDEX", "INNER", "INSERT", "INTO", "IS", "JOIN",
@@ -370,6 +370,8 @@ class ColorSyntax:
         "UNIQUE", "UPDATE", "VALUES", "VIEW", "WHERE",
     )
 
+    SQL_DIRECTIVES = ("BEGIN", "COMMIT", "RELEASE", "ROLLBACK", "SAVEPOINT")
+
     def __init__(self):
         self.tables = set()
         self.fields = set()
@@ -378,14 +380,16 @@ class ColorSyntax:
     def _recompile(self):
         self._sql_re = re.compile(
             r"""
-              (?P<comment>  ^--.*$)
-            | (?P<keyword>  \b(?i:%(keywords)s)\b)
-            | (?P<table>    \b(?i:%(tables)s)\b)
-            | (?P<field>    \b(?i:%(fields)s)\b)
+              (?P<comment>    ^--.*$)
+            | (?P<keyword>    \b(?i:%(keywords)s)\b)
+            | (?P<table>      \b(?i:%(tables)s)\b)
+            | (?P<field>      \b(?i:%(fields)s)\b)
+            | (?P<directive>  \b(?i:%(directives)s)\b)
             """ % {
                 "keywords": "|".join(re.escape(i) for i in self.SQL_KEYWORDS),
                 "tables": "|".join(re.escape(i) for i in self.tables),
                 "fields": "|".join(re.escape(i) for i in self.fields),
+                "directives": "|".join(re.escape(i) for i in self.SQL_DIRECTIVES),
             },
             re.MULTILINE | re.VERBOSE)
 
@@ -394,6 +398,7 @@ class ColorSyntax:
         text.tag_configure("comment", foreground="yellow")
         text.tag_configure("table", foreground="orange")
         text.tag_configure("field", foreground="green")
+        text.tag_configure("directive", foreground="blue", underline=True)
 
     def highlight(self, text, start, end):
         content = text.get(start, end)
