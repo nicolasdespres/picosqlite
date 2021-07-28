@@ -73,8 +73,8 @@ class SQLResult:
     request: Any
     started_at: datetime
     stopped_at: datetime
-    error: Optional[sqlite3.Error]
-    warning: Optional[sqlite3.Warning]
+    error: sqlite3.Error
+    warning: sqlite3.Warning
     internal_error: tuple[type, Exception, list]
 
     @property
