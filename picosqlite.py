@@ -688,10 +688,12 @@ class Application(tk.Frame):
                                  state=tk.DISABLED)
         self.db_menu.add_separator()
         self.db_menu.add_command(label="Refresh", command=self.refresh_action,
-                                 accelerator="F5")
+                                 accelerator="F5",
+                                 state=tk.DISABLED)
         self.db_menu.add_command(label="Run query",
                                  command=self.run_query_action,
-                                 accelerator="F3")
+                                 accelerator="F3",
+                                 state=tk.DISABLED)
         self.db_menu.add_command(label="Clear results",
                                  command=self.clear_results_action,
                                  accelerator="F7",
@@ -701,7 +703,8 @@ class Application(tk.Frame):
                                  state=tk.DISABLED)
         self.db_menu.add_command(label="Interrupt",
                                  command=self.interrupt_action,
-                                 accelerator="F12")
+                                 accelerator="F12",
+                                 state=tk.DISABLED)
         self.db_menu.add_separator()
         self.db_menu.add_command(label="Exit", command=self.exit_action)
 
