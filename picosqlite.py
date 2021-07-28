@@ -19,13 +19,17 @@ import argparse
 import os
 import sqlite3
 from datetime import datetime
+from time import time
 import tkinter as tk
 import tkinter.ttk as ttk
 from tkinter.scrolledtext import ScrolledText
 from tkinter.filedialog import askopenfilename
 from tkinter.messagebox import askyesno
 from tkinter.messagebox import showerror
+from tkinter.messagebox import showinfo
+from tkinter.messagebox import askquestion
 from tkinter.messagebox import Message
+from tkinter import messagebox
 from tkinter.font import nametofont
 from contextlib import contextmanager
 import re
@@ -135,7 +139,11 @@ def handler(result_type=None):
     return handle
 
 class SQLRunner(Task):
+    """Run SQL query in a different thread to allow interruption.
 
+    Warning: public method (not starting with '_') may safely be called from
+    an other thread.
+    """
 
     def __init__(self, db_filename, root=None,
                  process_result=None):
@@ -146,7 +154,10 @@ class SQLRunner(Task):
         self._process_result = process_result
         self._requests_q = Queue()
         self._results_q = Queue()
+        self._lock = threading.Lock()
         self._db = None
+        self._is_processing = False
+        self._is_closing = False
 
     @property
     def db_filename(self):
@@ -159,24 +170,44 @@ class SQLRunner(Task):
         return self._results_q.get_nowait()
 
     @property
-    def is_running(self):
-        return self._db is not None
+    def is_processing(self):
+        with self._lock:
+            return self._is_processing
+
+    @property
+    def is_closing(self):
+        with self._lock:
+            return self._is_closing
 
     def close(self):
-        self.put_request(Request.CloseDB())
+        if not self._is_closing:
+            self.put_request(Request.CloseDB())
+            with self._lock:
+                self._is_closing = True
         self.join(timeout=1.0)
         return not self.is_alive()
 
     def interrupt(self):
-        self._db.interrupt()
+        with self._lock:
+            if self._db is None:
+                return
+            self._db.interrupt()
+
+    def force_interrupt(self, delay=1.0):
+        started_at = time()
+        while self.is_processing and time() - started_at < delay:
+            self.interrupt()
+        return not self.is_processing
 
     def run(self):
         self._db = sqlite3.connect(self._db_filename)
         while self._db is not None:
             request = self._requests_q.get()
             if isinstance(request, Request.CloseDB):
-                self._db.close()
-                self._db = None
+                with self._lock:
+                    self._db.close()
+                    self._db = None
+                    self._is_closing = False
             else:
                 request_name = type(request).__name__
                 try:
@@ -184,7 +215,13 @@ class SQLRunner(Task):
                 except AttributeError:
                     raise TypeError(f"unsupported request {request_name}")
                 else:
-                    result = handler(request)
+                    with self._lock:
+                        self._is_processing = True
+                    try:
+                        result = handler(request)
+                    finally:
+                        with self._lock:
+                            self._is_processing = False
                     self._push_result(result)
 
     def _push_result(self, result: SQLResult):
@@ -733,16 +770,43 @@ class Application(tk.Frame):
         dlg.show()
 
     def exit_action(self):
-        sys.exit()
+        if self.sql is not None:
+            ans = askquestion(
+                parent=self,
+                title="Confirmation",
+                message="Do you really want to quit?")
+            if ans == 'no':
+                return
+        if self.safely_close_db():
+            sys.exit()
+        else:
+            assert self.sql is not None
+            if self.sql.is_closing:
+                dlg = Message(parent=self,
+                              title="Force quit",
+                              message="Failed to close the database.\n\n"
+                              "Do you want to force quit?",
+                              icon=messagebox.ERROR,
+                              type=messagebox.YESNO)
+                ans = dlg.show()
+                if ans == 'yes':
+                    sys.exit(1)
 
     def destroy(self):
         super().destroy()
         if self.sql is not None:
-            self.sql.close()
-            if self.sql.is_alive():
-                showerror(parent=self,
-                          title="Thread error",
-                          message="Failed to close the database.")
+            print("Try to close...")
+            if self.sql.close():
+                print("done")
+            else:
+                if self.sql.is_processing:
+                    print("Force interrupting...")
+                    self.sql.force_interrupt()
+                    print("Retry to close...")
+                    if self.sql.close():
+                        print("done")
+                    else:
+                        print("Failed to close... Too bad!")
         print("Good bye")
 
     def get_initial_open_dir(self):
@@ -786,15 +850,8 @@ class Application(tk.Frame):
         self.load_tables()
 
     def close_db(self):
-        if self.sql is None:
+        if not self.safely_close_db():
             return
-        self.sql.close()
-        if self.sql.is_alive():
-            showerror(parent=self,
-                      title="Thread error",
-                      message="Failed to close database.")
-            sys.exit(1)
-        self.sql = None
         self.master.title(self.NAME)
         self.db_menu.entryconfigure("Close", state=tk.DISABLED)
         self.db_menu.entryconfigure("Refresh", state=tk.DISABLED)
@@ -806,7 +863,28 @@ class Application(tk.Frame):
         self.unload_tables()
         self.clear_results_action()
 
-    def on_sql_result(self, event):
+    def safely_close_db(self):
+        if self.sql is None:
+            return True
+        if self.sql.is_processing:
+            ans = askquestion(
+                parent=self,
+                title="SQL",
+                message="Do you want to interrupt the execution?")
+            if ans == 'yes':
+                self.interrupt_action()
+            return False
+        if not self.sql.close():
+            showerror(parent=self,
+                      title="Thread error",
+                      message="Failed to close database.")
+            return False
+        self.sql = None
+        return True
+
+    def on_sql_result(self):
+        if self.sql is None or self.sql.is_closing:
+            return
         result = self.sql.get_result()
         result_name = type(result).__name__
         handler_name = f"on_sql_{result_name}"
@@ -992,7 +1070,8 @@ class Application(tk.Frame):
         self.statusbar.pop()
 
     def interrupt_action(self):
-        self.sql.interrupt()
+        with self.statusbar.context("Interrupting..."):
+            self.sql.force_interrupt()
 
     def log(self, msg, tags=()):
         self.console.log(msg, tags=tags)
@@ -1048,8 +1127,6 @@ class Application(tk.Frame):
 
     def enable_sql_execution_state(self):
         self.console.disable()
-        self.db_menu.entryconfigure("Open...", state=tk.DISABLED)
-        self.db_menu.entryconfigure("Close", state=tk.DISABLED)
         self.db_menu.entryconfigure("Run query", state=tk.DISABLED)
         self.db_menu.entryconfigure("Run script...", state=tk.DISABLED)
         self.db_menu.entryconfigure("Refresh", state=tk.DISABLED)
@@ -1057,8 +1134,6 @@ class Application(tk.Frame):
 
     def disable_sql_execution_state(self):
         self.console.enable()
-        self.db_menu.entryconfigure("Open...", state=tk.NORMAL)
-        self.db_menu.entryconfigure("Close", state=tk.NORMAL)
         self.db_menu.entryconfigure("Run query", state=tk.NORMAL)
         self.db_menu.entryconfigure("Run script...", state=tk.NORMAL)
         self.db_menu.entryconfigure("Refresh", state=tk.NORMAL)
