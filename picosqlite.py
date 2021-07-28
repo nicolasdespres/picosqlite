@@ -1046,10 +1046,7 @@ class Application(tk.Frame):
     def on_sql_QueryResult(self, result: QueryResult):
         self.log(f"\n-- Run at {result.started_at}\n")
         self.log(result.request.query)
-        if result.error is not None:
-            self.log_error(result.error)
-        if result.warning is not None:
-            self.log_warning(result.warning)
+        self.log_error_and_warning(result)
         if result.rows is None: # No data fetched.
             # Refresh because it is probably an insert/delete operation.
             self.refresh_action()
@@ -1082,6 +1079,12 @@ class Application(tk.Frame):
 
     def log_warning(self, w):
         self.log(f"Warning: {w}\n", tags=("warning",))
+
+    def log_error_and_warning(self, result):
+        if result.error is not None:
+            self.log_error(result.error)
+        if result.warning is not None:
+            self.log_warning(result.warning)
 
     def clear_results_action(self):
         """Remove all result tabs."""
@@ -1119,10 +1122,7 @@ class Application(tk.Frame):
     def on_sql_ScriptFinished(self, result: ScriptFinished):
         self.statusbar.pop()
         self.log(f"\n-- Run script '{result.request.script_filename}' in {result.duration}")
-        if result.error is not None:
-            self.log_error(result.error)
-        elif result.warning is not None:
-            self.log_warning(result.warning)
+        self.log_error_and_warning(result)
         self.refresh_action()
         self.disable_sql_execution_state()
 
