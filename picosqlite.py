@@ -513,6 +513,7 @@ class StatusBar(tk.Frame):
     def push(self, message, mode=None, maximum=None):
         self._stack.append(message)
         self.set_last_status_text()
+        self.update()
 
     def pop(self):
         self._stack.pop()
@@ -520,11 +521,11 @@ class StatusBar(tk.Frame):
         self.progress.stop()
         self.progress.grid_remove()
         self._configure_db_status()
+        self.update()
 
     @contextmanager
     def context(self, message):
         self.push(message)
-        self.update()
         try:
             yield
         finally:
@@ -536,6 +537,7 @@ class StatusBar(tk.Frame):
     def change_text(self, msg):
         self._stack[-1] = msg
         self.set_last_status_text()
+        self.update()
 
     def start(self, interval=None, **options):
         self.progress.configure(**options)
