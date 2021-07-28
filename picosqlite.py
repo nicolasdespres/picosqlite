@@ -1272,6 +1272,7 @@ def start_gui(db_path):
     root = tk.Tk()
     root.geometry("600x800")
     app = Application(db_path=db_path, master=root)
+    root.protocol('WM_DELETE_WINDOW', app.exit_action)
     try:
         app.mainloop()
     except SystemExit:
