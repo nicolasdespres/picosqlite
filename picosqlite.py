@@ -215,6 +215,13 @@ class SQLRunner(Task):
             self.interrupt()
         return not self.is_processing
 
+    @property
+    def in_transaction(self):
+        with self._lock:
+            if self._db is None:
+                return
+            return self._db.in_transaction
+
     def run(self):
         self._db = sqlite3.connect(self._db_filename)
         while self._db is not None:
@@ -490,9 +497,15 @@ class StatusBar(tk.Frame):
         self._stack = []
         self.label = tk.Label(self, anchor="w")
         self.progress = ttk.Progressbar(self, orient=tk.HORIZONTAL, length=100)
+        self._in_transaction = tk.Label(self, anchor="center")
+        self.set_in_transaction(False)
         self.rowconfigure(0, weight=1)
         self.columnconfigure(0, weight=1)
         self.label.grid(column=0, row=0, sticky="nsew")
+        self._configure_db_status()
+
+    def _configure_db_status(self):
+        self._in_transaction.grid(column=1, row=0, sticky="nse")
 
     def push(self, message, mode=None, maximum=None):
         self._stack.append(message)
@@ -503,6 +516,7 @@ class StatusBar(tk.Frame):
         self.set_last_status_text()
         self.progress.stop()
         self.progress.grid_remove()
+        self._configure_db_status()
 
     @contextmanager
     def context(self, message):
@@ -524,6 +538,13 @@ class StatusBar(tk.Frame):
         self.progress.configure(**options)
         self.progress.start()
         self.progress.grid(column=1, row=0, sticky="nse")
+        self._in_transaction.grid_remove()
+
+    def set_in_transaction(self, whether):
+        if whether:
+            self._in_transaction.configure(text="IN", background="red")
+        else:
+            self._in_transaction.configure(text="OK", background="green")
 
 class TableView(tk.Frame):
 
@@ -1183,6 +1204,7 @@ class Application(tk.Frame):
         self.console.run_query_bt.configure(
             text="Run", command=self.run_query_action)
         self.disable_sql_execution_state()
+        self.statusbar.set_in_transaction(self.sql.in_transaction)
         self.statusbar.pop()
 
     def interrupt_action(self):
