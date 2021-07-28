@@ -806,7 +806,7 @@ class Application(tk.Frame):
 
     def init_menu(self):
         # Doc: https://tkdocs.com/tutorial/menus.html
-        #TODO: Add this on Windows: root.option_add('*tearOff', FALSE)
+        self.master.option_add('*tearOff', False)
         self.menubar = tk.Menu(self)
         # Set it as the menu of this app top-level window
         self.master.config(menu=self.menubar)
