@@ -40,6 +40,7 @@ from typing import Optional
 from typing import Any
 from collections import abc
 import functools
+import traceback
 
 
 class Request:
@@ -74,6 +75,7 @@ class SQLResult:
     stopped_at: datetime
     error: Optional[sqlite3.Error]
     warning: Optional[sqlite3.Warning]
+    internal_error: tuple[type, Exception, list]
 
     @property
     def duration(self):
@@ -118,6 +120,7 @@ def handler(result_type=None):
         def wrapper(self, request, *args, **kwargs):
             error = None
             warning = None
+            internal_error = None
             payload = {}
             started_at = datetime.now()
             try:
@@ -126,6 +129,8 @@ def handler(result_type=None):
                 error = e
             except sqlite3.Warning as w:
                 warning = w
+            except Exception as e:
+                internal_error = sys.exc_info()
             finally:
                 stopped_at = datetime.now()
                 return result_type(
@@ -134,6 +139,7 @@ def handler(result_type=None):
                     stopped_at=stopped_at,
                     error=error,
                     warning=warning,
+                    internal_error=internal_error,
                     **payload)
         return wrapper
     return handle
@@ -925,6 +931,7 @@ class Application(tk.Frame):
 
     def on_sql_TableRows(self, result: TableRows):
         table_view = self.table_views[result.request.table_name]
+        self.log_error_and_warning(result)
         table_view.insert(result.rows, result.column_ids, result.column_names,
                           result.request.offset, result.request.limit)
         self.statusbar.pop()
@@ -1080,11 +1087,18 @@ class Application(tk.Frame):
     def log_warning(self, w):
         self.log(f"Warning: {w}\n", tags=("warning",))
 
+    def log_internal_error(self, etype, value, tb):
+        self.log(f"Internal Error!!!\n", tags=("error",))
+        for line in traceback.format_exception(etype, value, tb):
+            self.log(line, tags=("error",))
+
     def log_error_and_warning(self, result):
         if result.error is not None:
             self.log_error(result.error)
         if result.warning is not None:
             self.log_warning(result.warning)
+        if result.internal_error is not None:
+            self.log_internal_error(*result.internal_error)
 
     def clear_results_action(self):
         """Remove all result tabs."""
