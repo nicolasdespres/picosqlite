@@ -732,7 +732,7 @@ class Application(tk.Frame):
         self.selected_table_index = None
 
     def about_action(self):
-        dlg = Message(self,
+        dlg = Message(parent=self,
                       title="About",
                       message=f"Pico SQLite version {__version__}\n"
                       "Copyright © Nicolas Desprès from 2021")
@@ -746,7 +746,8 @@ class Application(tk.Frame):
         if self.sql is not None:
             self.sql.close()
             if self.sql.is_alive():
-                showerror(title="Thread error",
+                showerror(parent=self,
+                          title="Thread error",
                           message="Failed to close the database.")
         print("Good bye")
 
@@ -761,7 +762,8 @@ class Application(tk.Frame):
             title="SQLite database file",
             filetypes=[("SQLite file", ".sqlite .db .db3"),
                        ("All files", ".*")],
-            initialdir=self.get_initial_open_dir())
+            initialdir=self.get_initial_open_dir(),
+            parent=self)
         if not db_filename:
             return False
         if not self.close_action():
@@ -774,7 +776,8 @@ class Application(tk.Frame):
             return True
         is_yes = askyesno(
             title="Close DB confirmation",
-            message="Are you sure you want to close the database?")
+            message="Are you sure you want to close the database?",
+            parent=self)
         if not is_yes:
             return False
         self.close_db()
@@ -793,7 +796,8 @@ class Application(tk.Frame):
             return
         self.sql.close()
         if self.sql.is_alive():
-            showerror(title="Thread error",
+            showerror(parent=self,
+                      title="Thread error",
                       message="Failed to close database.")
             sys.exit(1)
         self.sql = None
@@ -1017,7 +1021,8 @@ class Application(tk.Frame):
         script_filename = askopenfilename(
             title="SQLite script file",
             filetypes=[("SQL script", ".sql")],
-            initialdir=self.get_initial_open_dir())
+            initialdir=self.get_initial_open_dir(),
+            parent=self)
         if not script_filename:
             return False
         return self.run_script(script_filename)
@@ -1026,7 +1031,7 @@ class Application(tk.Frame):
         try:
             script_file = open(script_filename)
         except OSError as e:
-            showerror(title="File error", message=str(e))
+            showerror(parent=self, title="File error", message=str(e))
             return False
         else:
             self.sql.put_request(
