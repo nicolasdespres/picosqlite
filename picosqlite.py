@@ -708,7 +708,7 @@ class DBMenu:
     CLOSE = "Close"
     REFRESH = "Refresh"
     RUN_QUERY = "Run query"
-    CLEAR_RESULTS = "Clear results"
+    CLEAR_ALL_RESULTS = "Clear all results"
     RUN_SCRIPT = "Run script..."
     INTERRUPT = "Interrupt"
     EXIT = "Exit"
@@ -800,7 +800,7 @@ class Application(tk.Frame):
                                  command=self.run_query_action,
                                  accelerator="F3",
                                  state=tk.DISABLED)
-        self.db_menu.add_command(label=DBMenu.CLEAR_RESULTS,
+        self.db_menu.add_command(label=DBMenu.CLEAR_ALL_RESULTS,
                                  command=self.clear_results_action,
                                  accelerator="F7",
                                  state=tk.DISABLED)
@@ -1167,7 +1167,8 @@ class Application(tk.Frame):
             self.tables.insert(0, result_table,
                                text=f"*Result-{self.result_view_count}")
             self.result_view_count += 1
-            self.db_menu.entryconfigure(DBMenu.CLEAR_RESULTS, state=tk.NORMAL)
+            self.db_menu.entryconfigure(DBMenu.CLEAR_ALL_RESULTS,
+                                        state=tk.NORMAL)
             self.tables.select(0)
         self.log(f"-- duration: {result.duration}")
         self.console.run_query_bt.configure(
@@ -1207,7 +1208,7 @@ class Application(tk.Frame):
             if self.is_result_view_tab(tab_idx):
                 self.tables.forget(tab_idx)
         self.result_view_count = 0
-        self.db_menu.entryconfigure(DBMenu.CLEAR_RESULTS, state=tk.DISABLED)
+        self.db_menu.entryconfigure(DBMenu.CLEAR_ALL_RESULTS, state=tk.DISABLED)
 
     def run_script_action(self):
         script_filename = askopenfilename(
