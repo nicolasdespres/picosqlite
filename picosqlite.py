@@ -107,12 +107,6 @@ class Task(threading.Thread):
         super().__init__(**thread_kwargs)
         self.root = root
 
-    def event_generate(self, *args, **kwargs):
-        self.root.event_generate(*args, **kwargs)
-
-    def bind(self, *args, **kwargs):
-        self.root.bind(*args, **kwargs)
-
 def handler(result_type=None):
     assert result_type is not None
     def handle(func):
@@ -142,7 +136,6 @@ def handler(result_type=None):
 
 class SQLRunner(Task):
 
-    RESULT_AVAILABLE_EVENT = "<<SQLResultAvailable>>"
 
     def __init__(self, db_filename, root=None,
                  process_result=None):
@@ -150,7 +143,7 @@ class SQLRunner(Task):
         self._db_filename = db_filename
         if not callable(process_result):
             raise TypeError("process_result must be callable")
-        self.bind(self.RESULT_AVAILABLE_EVENT, process_result)
+        self._process_result = process_result
         self._requests_q = Queue()
         self._results_q = Queue()
         self._db = None
@@ -196,7 +189,7 @@ class SQLRunner(Task):
 
     def _push_result(self, result: SQLResult):
         self._results_q.put(result)
-        self.event_generate(self.RESULT_AVAILABLE_EVENT)
+        self.root.after_idle(self._process_result)
 
     @handler(result_type=Schema)
     def _handle_LoadSchema(self, request: Request.LoadSchema):
