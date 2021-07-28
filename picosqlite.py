@@ -46,6 +46,9 @@ import functools
 import traceback
 
 
+def running_on_windows():
+    return os.name == 'nt'
+
 class Request:
 
     @dataclass
@@ -847,6 +850,14 @@ class Application(tk.Frame):
         self.help_menu = tk.Menu(self.menubar)
         self.menubar.add_cascade(label="Help", menu=self.help_menu)
         self.help_menu.add_command(label="About...", command=self.about_action)
+
+        # On Windows, we have to explicitly bind the accelerator...
+        if running_on_windows():
+            self.master.bind_all("<F2>", lambda _: self.open_action())
+            self.master.bind_all("<F3>", lambda _: self.run_query_action())
+            self.master.bind_all("<F5>", lambda _: self.refresh_action())
+            self.master.bind_all("<F7>", lambda _: self.clear_result_action())
+            self.master.bind_all("<F12>", lambda _: self.interrupt_action())
 
     def init_layout(self):
         # Doc: https://tkdocs.com/tutorial/grid.html#resize
