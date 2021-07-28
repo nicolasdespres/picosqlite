@@ -175,6 +175,10 @@ class SQLRunner(Task):
     def db_filename(self):
         return self._db_filename
 
+    @property
+    def last_modification_time(self):
+        return os.path.getmtime(self._db_filename)
+
     def put_request(self, request):
         self._requests_q.put(request)
 
@@ -773,6 +777,7 @@ class Application(tk.Frame):
         self.master.title(self.NAME)
         self.result_view_count = 0
         self.selected_table_index = None
+        self.last_refresed_at = None
 
     def about_action(self):
         dlg = Message(parent=self,
@@ -859,6 +864,7 @@ class Application(tk.Frame):
         self.sql = self.create_task(SQLRunner, db_filename,
                                     process_result=self.on_sql_result)
         self.sql.start()
+        self.last_refreshed_at = self.sql.last_modification_time
         self.load_tables()
 
     def close_db(self):
@@ -874,6 +880,7 @@ class Application(tk.Frame):
         self.statusbar.pop()
         self.unload_tables()
         self.clear_results_action()
+        self.last_refreshed_at = None
 
     def safely_close_db(self):
         if self.sql is None:
@@ -938,7 +945,14 @@ class Application(tk.Frame):
     def on_sql_TableRows(self, result: TableRows):
         table_view = self.table_views[result.request.table_name]
         self.log_error_and_warning(result)
-        if result.has_error:
+        do_refresh = result.has_error
+        if self.has_been_modified_outside():
+            showinfo(
+                parent=self,
+                title="Database",
+                message="Your database has been modified from an outside process.")
+            do_refresh = True
+        if do_refresh:
             self.statusbar.pop()
             self.refresh_action()
         else:
@@ -951,6 +965,13 @@ class Application(tk.Frame):
         self.selected_table_index = get_selected_tab_index(self.tables)
         self.unload_tables()
         self.load_tables()
+        if self.sql is not None:
+            self.last_refreshed_at = self.sql.last_modification_time
+
+    def has_been_modified_outside(self):
+        if self.sql is None or self.last_refreshed_at is None:
+            return False
+        return self.last_refreshed_at != self.sql.last_modification_time
 
     def is_result_view(self, tab_text):
         return tab_text.startswith("*")
