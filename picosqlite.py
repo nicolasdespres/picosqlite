@@ -260,6 +260,8 @@ def eat_atmost(it, n=1000):
 
 def get_selected_tab_index(notebook):
     widget_name = notebook.select()
+    if not widget_name: # Rarely happen when no tables are present.
+        return None
     return notebook.index(widget_name)
 
 class SchemaFrame(tk.Frame):
@@ -878,6 +880,8 @@ class Application(tk.Frame):
             self.tables.forget(schema_tab_idx)
 
     def load_tables(self):
+        if self.sql is None: # No database opened
+            return
         self.statusbar.push("Loading database schema...")
         self.sql.put_request(Request.LoadSchema())
 
