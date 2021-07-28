@@ -38,6 +38,9 @@ from queue import Queue
 from dataclasses import dataclass
 from typing import Optional
 from typing import Any
+from typing import Dict
+from typing import List
+from typing import Tuple
 from collections import abc
 import functools
 import traceback
@@ -75,7 +78,7 @@ class SQLResult:
     stopped_at: datetime
     error: sqlite3.Error
     warning: sqlite3.Warning
-    internal_error: tuple[type, Exception, list]
+    internal_error: Tuple[type, Exception, list]
 
     @property
     def duration(self):
@@ -89,12 +92,12 @@ class SQLResult:
 
 @dataclass
 class Schema(SQLResult):
-    schema: dict[str, list[tuple[int, str, str, int, Any, int]]]
+    schema: Dict[str, List[Tuple[int, str, str, int, Any, int]]]
 
-Row = tuple[Any, ...]
-Rows = list[Row]
-ColumnIDS = tuple[str, ...]
-ColumnNames = tuple[str, ...]
+Row = Tuple[Any, ...]
+Rows = List[Row]
+ColumnIDS = Tuple[str, ...]
+ColumnNames = Tuple[str, ...]
 
 @dataclass
 class TableRows(SQLResult):
