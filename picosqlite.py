@@ -81,6 +81,12 @@ class SQLResult:
     def duration(self):
         return self.stopped_at - self.started_at
 
+    @property
+    def has_error(self):
+        return self.error is not None \
+            or self.internal_error is not None \
+            or self.warning is not None
+
 @dataclass
 class Schema(SQLResult):
     schema: dict[str, list[tuple[int, str, str, int, Any, int]]]
@@ -92,14 +98,14 @@ ColumnNames = tuple[str, ...]
 
 @dataclass
 class TableRows(SQLResult):
-    rows: Rows
-    column_ids: ColumnIDS
-    column_names: ColumnNames
+    rows: Optional[Rows] = None
+    column_ids: Optional[ColumnIDS] = None
+    column_names: Optional[ColumnNames] = None
 
 @dataclass
 class QueryResult(SQLResult):
     rows: Optional[Rows] = None
-    truncated: Optional[bool] = None
+    truncated: bool = False
     column_ids: Optional[ColumnIDS] = None
     column_names: Optional[ColumnNames] = None
 
@@ -932,9 +938,14 @@ class Application(tk.Frame):
     def on_sql_TableRows(self, result: TableRows):
         table_view = self.table_views[result.request.table_name]
         self.log_error_and_warning(result)
-        table_view.insert(result.rows, result.column_ids, result.column_names,
-                          result.request.offset, result.request.limit)
-        self.statusbar.pop()
+        if result.has_error:
+            self.statusbar.pop()
+            self.refresh_action()
+        else:
+            table_view.insert(result.rows,
+                              result.column_ids, result.column_names,
+                              result.request.offset, result.request.limit)
+            self.statusbar.pop()
 
     def refresh_action(self):
         self.selected_table_index = get_selected_tab_index(self.tables)
