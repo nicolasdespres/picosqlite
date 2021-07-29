@@ -868,12 +868,19 @@ class Application(tk.Frame):
         self.columns_frame.rowconfigure(0, weight=1)
         self.columns_frame.columnconfigure(0, weight=1)
 
-        self.show_text = ScrolledText(wrap="char", background="lightgray")
-        self.show_text.configure(state=tk.DISABLED)
-        self.show_text.grid(column=2, row=0, sticky="nswe")
+        self.show_frame = tk.Frame(self.detailed_view)
+        self.show_text = ScrolledText(self.show_frame, wrap="char")
+        self.show_text.grid(column=0, row=0, sticky="nswe")
+        self.update_bt = tk.Button(
+            self.show_frame, text="Update",
+            state=tk.DISABLED,
+            command=self.update_value_action)
+        self.update_bt.grid(column=0, row=1, sticky="nswe")
+        self.show_frame.rowconfigure(0, weight=1)
+        self.show_frame.columnconfigure(0, weight=1)
 
         self.detailed_view.add(self.columns_frame, weight=1)
-        self.detailed_view.add(self.show_text, weight=4)
+        self.detailed_view.add(self.show_frame, weight=4)
 
     def init_menu(self):
         # Doc: https://tkdocs.com/tutorial/menus.html
@@ -1208,6 +1215,7 @@ class Application(tk.Frame):
         self.detailed_view._current_item_id = None
         self.columns_list.set([])
         self.show_value('')
+        self.update_bt['state'] = tk.DISABLED
 
     def update_shown_row(self, tree):
         item_id = tree.focus()
@@ -1246,11 +1254,48 @@ class Application(tk.Frame):
             return
         value = values[selected_item]
         self.show_value(unmangle_value(value))
+        self.update_bt['state'] = tk.NORMAL
 
     def show_value(self, value):
-        self.show_text["state"] = tk.NORMAL
         set_text_widget_content(self.show_text, value)
-        self.show_text["state"] = tk.DISABLED
+
+    def update_value_action(self):
+        if self.sql is None:
+            return
+        if self.detailed_view._current_tree is None:
+            return
+        if self.detailed_view._current_item_id is None:
+            return
+        self.update_value(self.detailed_view._current_tree,
+                          self.detailed_view._current_item_id)
+
+    def update_value(self, tree, item_id):
+        table_name = tree._table_name
+        columns = tree['columns']
+        field = self.schema.get_field_by_id(table_name, tree._selected_column)
+        pk = self.schema.get_table_primary_key(table_name)
+        if pk is None:
+            showerror(parent=self,
+                      title="Schema error",
+                      message=f"No primary key for table {table_name}")
+            return False
+        values = tree.item(item_id, option="values")
+        pk_value = values[pk.cid]
+        new_value = self.show_text.get('1.0', 'end')
+        ans = askquestion(
+            parent=self,
+            title="Update confirmation",
+            message=f"Are you sure you want to change the value of field '{field.name}' of row with {pk.name} = {pk_value} in table '{table_name}'?")
+        if ans == 'no':
+            return False
+        query = "UPDATE {} SET {} = {} WHERE {} = {};"\
+            .format(table_name,
+                    field.name,
+                    field.escape(new_value),
+                    pk.name,
+                    pk_value)
+        self.run_query(query)
+        return True
 
     def run_query_action(self):
         self.run_query(self.console.get_current_query())
