@@ -654,6 +654,7 @@ class NamedTableView(TableView):
         super().__init__(**kwargs)
         self.fetcher = fetcher
         self.tree._table_name = self.table_name
+        self.tree['selectmode'] = 'extended'
         self.tree['yscrollcommand'] = self.lazy_load
         self.tree.bind("<Configure>", self.on_tree_configure)
         font = nametofont(ttk.Style().lookup("Treeview", "font"))
@@ -809,6 +810,7 @@ class DBMenu:
     CLEAR_ALL_RESULTS = "Clear all results"
     RUN_SCRIPT = "Run script..."
     INTERRUPT = "Interrupt"
+    DELETE_ROWS = "Delete rows"
     EXIT = "Exit"
 
 class Application(tk.Frame):
@@ -919,6 +921,10 @@ class Application(tk.Frame):
                                  command=self.interrupt_action,
                                  accelerator="F12",
                                  state=tk.DISABLED)
+        self.db_menu.add_command(label=DBMenu.DELETE_ROWS,
+                                 command=self.delete_rows_action,
+                                 accelerator="F9",
+                                 state=tk.DISABLED)
         self.db_menu.add_separator()
         self.db_menu.add_command(label=DBMenu.EXIT, command=self.exit_action)
 
@@ -932,6 +938,7 @@ class Application(tk.Frame):
             self.master.bind_all("<F3>", lambda _: self.run_query_action())
             self.master.bind_all("<F5>", lambda _: self.refresh_action())
             self.master.bind_all("<F7>", lambda _: self.clear_result_action())
+            self.master.bind_all("<F9>", lambda _: self.delete_rows_action())
             self.master.bind_all("<F12>", lambda _: self.interrupt_action())
 
     def init_layout(self):
@@ -1218,7 +1225,15 @@ class Application(tk.Frame):
         self.update_bt['state'] = tk.DISABLED
 
     def update_shown_row(self, tree):
-        item_id = tree.focus()
+        selection = tree.selection()
+        selected_count = len(selection)
+        if selected_count == 1:
+            item_id = selection[0]
+        else:
+            item_id = ''
+        self.db_menu.entryconfigure(
+            DBMenu.DELETE_ROWS,
+            state=tk.NORMAL if selected_count >= 1 else tk.DISABLED)
         if not item_id:
             self.reset_shown_value()
             tree._selected_column = 0
@@ -1436,6 +1451,35 @@ class Application(tk.Frame):
 
     def create_task(self, task_class, *args, **kwargs):
         return task_class(*args, root=self.master, **kwargs)
+
+    def delete_rows_action(self):
+        if self.sql is None:
+            return False
+        selected_tab = self.tables.select()
+        if not selected_tab:
+            return False
+        table_view = self.tables.nametowidget(selected_tab)
+        if not isinstance(table_view, NamedTableView):
+            return False
+        selection = table_view.tree.selection()
+        pk = self.schema.get_table_primary_key(table_view.table_name)
+        if pk is None:
+            showerror(parent=self,
+                      title="Schema error",
+                      message=f"No primary key for table {table_name}")
+            return False
+        ans = askquestion(
+            parent=self,
+            title="Delete confirmation",
+            message=\
+            "Are you sure you want to delete {} rows from table '{}'?"\
+            .format(len(selection), table_view.table_name))
+        if ans == 'no':
+            return False
+        cond = " OR ".join(f"{pk.name} = {i}" for  i in selection)
+        query = f"DELETE FROM {table_view.table_name} WHERE {cond};"
+        self.run_query(query)
+        return True
 
 def write_to_tk_text_log(log, msg, tags=()):
     numlines = int(log.index('end - 1 line').split('.')[0])
