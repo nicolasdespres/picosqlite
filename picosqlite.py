@@ -185,7 +185,8 @@ class SQLRunner(Task):
 
     @property
     def last_modification_time(self):
-        return os.path.getmtime(self._db_filename)
+        if os.path.exists(self._db_filename):
+            return os.path.getmtime(self._db_filename)
 
     def put_request(self, request):
         self._requests_q.put(request)
@@ -1134,21 +1135,28 @@ class Application(tk.Frame):
     def on_sql_TableRows(self, result: TableRows):
         table_view = self.table_views[result.request.table_name]
         self.log_error_and_warning(result)
+        self.statusbar.pop()
+        last_mtime = self.sql.last_modification_time
+        if last_mtime is None:
+            showinfo(
+                parent=self,
+                title="Database",
+                message="Your database file has been deleted.")
+            self.close_db()
+            return
         do_refresh = result.has_error
-        if self.has_been_modified_outside():
+        if self.last_refreshed_at != last_mtime:
             showinfo(
                 parent=self,
                 title="Database",
                 message="Your database has been modified from an outside process.")
             do_refresh = True
         if do_refresh:
-            self.statusbar.pop()
             self.refresh_action()
         else:
             table_view.insert(result.rows,
                               result.column_ids, result.column_names,
                               result.request.offset, result.request.limit)
-            self.statusbar.pop()
 
     def refresh_action(self):
         self.selected_table_index = get_selected_tab_index(self.tables)
@@ -1160,11 +1168,6 @@ class Application(tk.Frame):
         self.load_tables()
         if self.sql is not None:
             self.last_refreshed_at = self.sql.last_modification_time
-
-    def has_been_modified_outside(self):
-        if self.sql is None or self.last_refreshed_at is None:
-            return False
-        return self.last_refreshed_at != self.sql.last_modification_time
 
     def is_result_view(self, tab_text):
         return tab_text.startswith("*")
