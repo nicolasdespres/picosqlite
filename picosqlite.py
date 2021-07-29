@@ -1348,6 +1348,10 @@ class Application(tk.Frame):
         self.log(f"\n-- Run at {result.started_at}\n")
         self.log(result.request.query)
         self.log_error_and_warning(result)
+        self.log(f"-- duration: {result.duration}")
+        self.console.run_query_bt.configure(
+            text="Run", command=self.run_query_action)
+        self.statusbar.pop()
         if result.rows is None: # No data fetched.
             # Refresh because it is probably an insert/delete operation.
             self.refresh_action()
@@ -1365,12 +1369,8 @@ class Application(tk.Frame):
             self.db_menu.entryconfigure(DBMenu.CLEAR_ALL_RESULTS,
                                         state=tk.NORMAL)
             self.tables.select(0)
-        self.log(f"-- duration: {result.duration}")
-        self.console.run_query_bt.configure(
-            text="Run", command=self.run_query_action)
         self.disable_sql_execution_state()
         self.statusbar.set_in_transaction(self.sql.in_transaction)
-        self.statusbar.pop()
         self.statusbar.update_idletasks()
 
     def interrupt_action(self):
