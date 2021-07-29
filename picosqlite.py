@@ -24,6 +24,7 @@ import tkinter as tk
 import tkinter.ttk as ttk
 from tkinter.scrolledtext import ScrolledText
 from tkinter.filedialog import askopenfilename
+from tkinter.filedialog import asksaveasfilename
 from tkinter.messagebox import askyesno
 from tkinter.messagebox import showerror
 from tkinter.messagebox import showinfo
@@ -804,6 +805,7 @@ class ResultTableView(TableView):
             self.tree.insert('', 'end', values=["..."] * len(rows[0]))
 
 class DBMenu:
+    NEW = "New..."
     OPEN = "Open..."
     CLOSE = "Close"
     REFRESH = "Refresh"
@@ -895,6 +897,7 @@ class Application(tk.Frame):
 
         self.db_menu = tk.Menu(self.menubar)
         self.menubar.add_cascade(label="Database", menu=self.db_menu)
+        self.db_menu.add_command(label=DBMenu.NEW, command=self.new_action)
         self.db_menu.add_command(label=DBMenu.OPEN, command=self.open_action,
                                  accelerator="F2")
         self.db_menu.add_command(label=DBMenu.CLOSE,
@@ -1016,6 +1019,20 @@ class Application(tk.Frame):
             return os.path.expanduser("~")
         else:
             return os.path.dirname(self.sql.db_filename)
+
+    def new_action(self):
+        db_filename = asksaveasfilename(
+            parent=self,
+            title="SQLite database file",
+            filetypes=[("SQLite file", ".db .db3 .sqlite"),
+                       ("All files", ".*")],
+            initialdir=self.get_initial_open_dir())
+        if not db_filename:
+            return False
+        if not self.close_action():
+            return False
+        self.open_db(db_filename)
+        return True
 
     def open_action(self):
         db_filename = askopenfilename(
