@@ -32,7 +32,6 @@ from tkinter.messagebox import askquestion
 from tkinter.messagebox import Message
 from tkinter import messagebox
 from tkinter.font import nametofont
-from contextlib import contextmanager
 import re
 import threading
 from queue import Queue
@@ -565,7 +564,6 @@ class StatusBar(tk.Frame):
 
     def __init__(self, master=None):
         super().__init__(master=master)
-        self._stack = []
         self.label = tk.Label(self, anchor="w")
         self.progress = ttk.Progressbar(self, orient=tk.HORIZONTAL, length=100)
         self._in_transaction = tk.Label(self, anchor="center")
@@ -574,39 +572,15 @@ class StatusBar(tk.Frame):
         self.columnconfigure(0, weight=1)
         self.label.grid(column=0, row=0, sticky="nsew")
         self._configure_db_status()
+        self._temporary_text = None
 
     def _configure_db_status(self):
         self._in_transaction.grid(column=1, row=0, sticky="nse")
 
-    def push(self, message):
-        # print("PUSH", message, self._stack)
-        self._stack.append(message)
-        self.set_last_status_text()
-
-    def pop(self):
-        # print("POP", self._stack)
-        self._stack.pop()
-        self.set_last_status_text()
+    def stop(self):
         self.progress.stop()
         self.progress.grid_forget()
         self._configure_db_status()
-
-    @contextmanager
-    def context(self, message):
-        self.push(message)
-        self.update_idletasks()
-        try:
-            yield
-        finally:
-            self.pop()
-
-    def set_last_status_text(self):
-        self.label['text'] = self._stack[-1]
-
-    def change_text(self, msg):
-        # print("CHANGE", msg, self._stack)
-        self._stack[-1] = msg
-        self.set_last_status_text()
 
     def start(self, interval=None, **options):
         self.progress.configure(**options)
@@ -619,6 +593,29 @@ class StatusBar(tk.Frame):
             self._in_transaction.configure(text="IN", background="red")
         else:
             self._in_transaction.configure(text="OK", background="green")
+
+    def show(self, text, delay=None):
+        """Show _text_ during delay second in the status bar.
+        """
+        ### Clear any pending temporary text.
+        if self._temporary_text is not None:
+            self.after_cancel(self._temporary_text)
+            self._temporary_text = None
+
+        def remove():
+            self.label['text'] = self._text
+            self._temporary_text = None
+
+        self.label['text'] = text
+        if delay is None:
+            self._text = text
+        else:
+            self._temporary_text = self.after(int(delay*1000), remove)
+        self.update_idletasks()
+
+class StatusMessage:
+    READY_TO_OPEN = "Ready to open a database"
+    READY = "Ready to run queries..."
 
 class TableView(tk.Frame):
 
@@ -786,7 +783,7 @@ class Fetcher:
         self.app = app
 
     def __call__(self, offset, limit):
-        self.app.statusbar.push(f"Loading {limit} records from {offset} in table '{self.table_name}'...")
+        self.app.statusbar.show(f"Loading {limit} records from {offset} in table '{self.table_name}'...", delay=0.5)
         self.app.sql.put_request(
             Request.ViewTable(table_name=self.table_name,
                               offset=offset,
@@ -851,7 +848,7 @@ class Application(tk.Frame):
 
     def init_statusbar(self):
         self.statusbar = StatusBar(self)
-        self.statusbar.push("Ready to open a database.")
+        self.statusbar.show(StatusMessage.READY_TO_OPEN)
 
     def init_detailed_view(self):
         self.detailed_view = ttk.PanedWindow(self, orient=tk.HORIZONTAL)
@@ -1079,7 +1076,7 @@ class Application(tk.Frame):
         self.db_menu.entryconfigure(DBMenu.RUN_SCRIPT, state=tk.DISABLED)
         self.db_menu.entryconfigure(DBMenu.INTERRUPT, state=tk.DISABLED)
         self.console.disable()
-        self.statusbar.pop()
+        self.statusbar.show(StatusMessage.READY_TO_OPEN)
         self.unload_tables()
         self.clear_all_results_action()
         self.last_refreshed_at = None
@@ -1147,12 +1144,11 @@ class Application(tk.Frame):
         self.db_menu.entryconfigure(DBMenu.INTERRUPT, state=tk.DISABLED)
         self.console.enable()
         self.master.title(f"{self.NAME} - {self.sql.db_filename}")
-        self.statusbar.change_text("Ready to run query.")
+        self.statusbar.show(StatusMessage.READY)
 
     def on_sql_TableRows(self, result: TableRows):
         table_view = self.table_views[result.request.table_name]
         self.log_error_and_warning(result)
-        self.statusbar.pop()
         last_mtime = self.sql.last_modification_time
         if last_mtime is None:
             showinfo(
@@ -1213,7 +1209,7 @@ class Application(tk.Frame):
     def load_tables(self):
         if self.sql is None: # No database opened
             return
-        self.statusbar.push("Loading database schema...")
+        self.statusbar.show("Loading database schema...")
         self.sql.put_request(Request.LoadSchema())
 
     def create_table_view(self, table_type, **kwargs):
@@ -1337,7 +1333,7 @@ class Application(tk.Frame):
         self.run_query(self.console.get_current_query())
 
     def run_query(self, query):
-        self.statusbar.push("Running query...")
+        self.statusbar.show("Running query...")
         self.statusbar.start(mode="indeterminate")
         self.sql.put_request(Request.RunQuery(query=query))
         self.console.run_query_bt.configure(
@@ -1351,7 +1347,8 @@ class Application(tk.Frame):
         self.log(f"-- duration: {result.duration}")
         self.console.run_query_bt.configure(
             text="Run", command=self.run_query_action)
-        self.statusbar.pop()
+        self.statusbar.stop()
+        self.statusbar.show(StatusMessage.READY)
         if result.rows is None: # No data fetched.
             # Refresh because it is probably an insert/delete operation.
             self.refresh_action()
@@ -1371,11 +1368,13 @@ class Application(tk.Frame):
             self.tables.select(0)
         self.disable_sql_execution_state()
         self.statusbar.set_in_transaction(self.sql.in_transaction)
-        self.statusbar.update_idletasks()
 
     def interrupt_action(self):
-        with self.statusbar.context("Interrupting..."):
-            self.sql.force_interrupt()
+        self.statusbar.show("Interrupting...")
+        if self.sql.force_interrupt():
+            self.statusbar.show(StatusMessage.READY)
+        else:
+            self.statusbar.show("Failed to interrupt!")
 
     def log(self, msg, tags=()):
         self.console.log(msg, tags=tags)
@@ -1445,19 +1444,19 @@ class Application(tk.Frame):
             self.sql.put_request(
                 Request.RunScript(script_filename=script_filename,
                                   script=script_file.read()))
-            self.statusbar.push(f"Running script {script_filename}...")
+            self.statusbar.show(f"Running script {script_filename}...")
             self.statusbar.start(mode="indeterminate")
             self.enable_sql_execution_state()
             return True
 
     def on_sql_ScriptFinished(self, result: ScriptFinished):
-        self.statusbar.pop()
+        self.statusbar.show(StatusMessage.READY)
+        self.statusbar.stop()
         self.log(f"\n-- Run script '{result.request.script_filename}' in {result.duration}")
         self.log_error_and_warning(result)
         self.refresh_action()
         self.disable_sql_execution_state()
         self.statusbar.set_in_transaction(self.sql.in_transaction)
-        self.statusbar.update_idletasks()
 
     def enable_sql_execution_state(self):
         self.console.disable()
