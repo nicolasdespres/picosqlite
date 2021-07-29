@@ -2,7 +2,7 @@
 # -*- encoding: utf-8 -*-
 """A tiny sqlite view interface in TK intended for teaching.
 
-No dependency apart from python 3.9.
+No dependency apart from python 3.7.
 """
 
 # Documentation: https://tkdocs.com
