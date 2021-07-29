@@ -1253,15 +1253,15 @@ class Application(tk.Frame):
         self.show_text["state"] = tk.DISABLED
 
     def run_query_action(self):
+        self.run_query(self.console.get_current_query())
+
+    def run_query(self, query):
         self.statusbar.push("Running query...")
         self.statusbar.start(mode="indeterminate")
-        self.run_query(self.console.get_current_query())
+        self.sql.put_request(Request.RunQuery(query=query))
         self.console.run_query_bt.configure(
             text="Stop", command=self.interrupt_action)
         self.enable_sql_execution_state()
-
-    def run_query(self, query):
-        self.sql.put_request(Request.RunQuery(query=query))
 
     def on_sql_QueryResult(self, result: QueryResult):
         self.log(f"\n-- Run at {result.started_at}\n")
