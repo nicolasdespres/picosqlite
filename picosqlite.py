@@ -46,7 +46,15 @@ from collections import abc
 import functools
 import traceback
 from collections import defaultdict
+from pathlib import Path
 
+
+def ensure_file_ext(filename, exts):
+    path = Path(filename)
+    if path.suffix in exts:
+        return str(path)
+    else:
+        return str(path) + exts[0]
 
 def running_on_windows():
     return os.name == 'nt'
@@ -1026,6 +1034,7 @@ class Application(tk.Frame):
             initialdir=self.get_initial_open_dir())
         if not db_filename:
             return False
+        db_filename = ensure_file_ext(db_filename, (".db", ".db3", ".sqlite"))
         if not self.close_action():
             return False
         self.open_db(db_filename)
