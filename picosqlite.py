@@ -1456,6 +1456,7 @@ class Application(tk.Frame):
         self.log_error_and_warning(result)
         self.refresh_action()
         self.disable_sql_execution_state()
+        self.statusbar.set_in_transaction(self.sql.in_transaction)
         self.statusbar.update_idletasks()
 
     def enable_sql_execution_state(self):
