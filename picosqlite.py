@@ -1661,28 +1661,3 @@ def main(argv):
 
 if __name__ == "__main__":
     sys.exit(main(sys.argv))
-
-# Fixtures
-# ========
-
-# Raises exceptions
-"""
-INSERT INTO users (pseudo, password)
-VALUES (foo1, barbar);
-"""
-
-# Insert item
-"""
-INSERT INTO users (pseudo, password)
-VALUES ("foo1", "barbar");
-"""
-
-# Delete item
-"""
-DELETE FROM users WHERE id=5;
-"""
-
-# Select data
-"""
-SELECT * FROM users, posts;
-"""
