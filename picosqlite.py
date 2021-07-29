@@ -576,22 +576,23 @@ class StatusBar(tk.Frame):
     def _configure_db_status(self):
         self._in_transaction.grid(column=1, row=0, sticky="nse")
 
-    def push(self, message, mode=None, maximum=None):
+    def push(self, message):
+        # print("PUSH", message, self._stack)
         self._stack.append(message)
         self.set_last_status_text()
-        self.update()
 
     def pop(self):
+        # print("POP", self._stack)
         self._stack.pop()
         self.set_last_status_text()
         self.progress.stop()
-        self.progress.grid_remove()
+        self.progress.grid_forget()
         self._configure_db_status()
-        self.update()
 
     @contextmanager
     def context(self, message):
         self.push(message)
+        self.update_idletasks()
         try:
             yield
         finally:
@@ -601,15 +602,15 @@ class StatusBar(tk.Frame):
         self.label['text'] = self._stack[-1]
 
     def change_text(self, msg):
+        # print("CHANGE", msg, self._stack)
         self._stack[-1] = msg
         self.set_last_status_text()
-        self.update()
 
     def start(self, interval=None, **options):
         self.progress.configure(**options)
         self.progress.start()
         self.progress.grid(column=1, row=0, sticky="nse")
-        self._in_transaction.grid_remove()
+        self._in_transaction.grid_forget()
 
     def set_in_transaction(self, whether):
         if whether:
@@ -1350,6 +1351,7 @@ class Application(tk.Frame):
         self.disable_sql_execution_state()
         self.statusbar.set_in_transaction(self.sql.in_transaction)
         self.statusbar.pop()
+        self.statusbar.update_idletasks()
 
     def interrupt_action(self):
         with self.statusbar.context("Interrupting..."):
@@ -1434,6 +1436,7 @@ class Application(tk.Frame):
         self.log_error_and_warning(result)
         self.refresh_action()
         self.disable_sql_execution_state()
+        self.statusbar.update_idletasks()
 
     def enable_sql_execution_state(self):
         self.console.disable()
@@ -1606,7 +1609,7 @@ def start_gui(db_path):
     app = Application(db_path=db_path, master=root)
     root.protocol('WM_DELETE_WINDOW', app.exit_action)
     try:
-        app.mainloop()
+        root.mainloop()
     except SystemExit:
         app.destroy()
     return 0
