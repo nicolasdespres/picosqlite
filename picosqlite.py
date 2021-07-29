@@ -824,7 +824,7 @@ class DBMenu:
 
 class Application(tk.Frame):
 
-    NAME = "Pico SQL"
+    NAME = "Pico SQLite"
     COMMAND_LOG_HISTORY = 1000
 
     def __init__(self, db_path=None, master=None):
