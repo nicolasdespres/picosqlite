@@ -1383,14 +1383,7 @@ class RowFormatter:
 
     def _update_maxsize(self, values):
         for i, v in enumerate(values):
-            if isinstance(v, str):
-                text = v
-            elif isinstance(v, (int, float)):
-                text = str(v)
-            elif v is None:
-                text = ''
-            else:
-                raise RuntimeError(f"unsupported value type: {type(v).__name__}")
+            text = str(v)
             width = self._tree_font.measure(text) + 10
             if width > self.maxsizes[i]:
                 self.maxsizes[i] = width
