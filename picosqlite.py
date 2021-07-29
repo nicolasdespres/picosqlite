@@ -653,6 +653,7 @@ class NamedTableView(TableView):
     def __init__(self, fetcher=None, **kwargs):
         super().__init__(**kwargs)
         self.fetcher = fetcher
+        self.tree._table_name = self.table_name
         self.tree['yscrollcommand'] = self.lazy_load
         self.tree.bind("<Configure>", self.on_tree_configure)
         font = nametofont(ttk.Style().lookup("Treeview", "font"))
@@ -661,6 +662,10 @@ class NamedTableView(TableView):
         self.end_offset = 0 # excluded
         self.fetching = False
         self.previous_visible_item = None
+
+    @property
+    def table_name(self):
+        return self.fetcher.table_name
 
     @property
     def nb_view_items(self):
