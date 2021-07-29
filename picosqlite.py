@@ -41,9 +41,11 @@ from typing import Any
 from typing import Dict
 from typing import List
 from typing import Tuple
+from typing import Union
 from collections import abc
 import functools
 import traceback
+from collections import defaultdict
 
 
 def running_on_windows():
@@ -323,6 +325,45 @@ def get_selected_tab_index(notebook):
         return None
     return notebook.index(widget_name)
 
+def sqlite_type_to_py(vtype):
+    if "INT" in vtype:
+        return int
+    elif 'REAL' in vtype or 'FLOA' in vtype or "DOUB" in vtype:
+        return float
+    elif 'CHAR' in vtype:
+        return str
+    elif 'BLOB' in vtype:
+        return bytes
+    else:
+        raise ValueError(f"unsupported sqlite type: {vtype}")
+
+def escape_sqlite_str(text):
+    return "'" + text.replace("'", "''") + "'"
+
+@dataclass
+class Field:
+    cid: int
+    name: str
+    vtype: Union[str, None, int, float]
+    notnull: bool
+    default_value: Any
+    primary_key: bool
+
+    @classmethod
+    def from_sqlite(cls, cid, name, vtype, notnull, default_value, primary_key):
+        return cls(cid=cid,
+                   name=name,
+                   vtype=sqlite_type_to_py(vtype),
+                   notnull=(notnull == 1),
+                   default_value=default_value,
+                   primary_key=(primary_key == 1))
+
+    def escape(self, value):
+        if self.vtype is str:
+            return escape_sqlite_str(value)
+        else:
+            return str(value)
+
 class SchemaFrame(tk.Frame):
 
     COLUMNS = ("name", "type", "not null", "default", "PK")
@@ -344,6 +385,7 @@ class SchemaFrame(tk.Frame):
         self._ys.grid(column=1, row=0, rowspan=2, sticky="nsw")
         self._xs.grid(column=0, row=1, columnspan=2, sticky="ews")
         self._format_row = RowFormatter(self.COLUMNS, self.COLUMNS)
+        self.tables = defaultdict(dict)
 
     @property
     def _db(self):
@@ -354,7 +396,8 @@ class SchemaFrame(tk.Frame):
         self._tree.insert('', 'end', table_name, values=table_row)
         self._format_row(table_row)
         for field in fields:
-            cid, name, vtype, notnuill, default_value, primary_key = field
+            cid, name, vtype, notnull, default_value, primary_key = field
+            self.tables[table_name][name] = Field.from_sqlite(*field)
             item_id = f"{table_name}.{name}"
             self._tree.insert(table_name, 'end', item_id,
                               values=self._format_row(field[1:]))
@@ -368,6 +411,26 @@ class SchemaFrame(tk.Frame):
         table_items = self._tree.get_children()
         for table_item in table_items:
             self._tree.delete(table_item)
+
+    def get_table_primary_key(self, table_name):
+        try:
+            fields = self.tables[table_name]
+        except KeyError:
+            return
+        else:
+            for name, info in fields.items():
+                if info.primary_key:
+                    return info
+
+    def get_field_by_id(self, table_name, cid):
+        try:
+            fields = self.tables[table_name]
+        except KeyError:
+            return
+        else:
+            for name, info in fields.items():
+                if info.cid == cid:
+                    return info
 
 class ColorSyntax:
 
