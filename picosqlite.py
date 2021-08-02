@@ -1142,7 +1142,7 @@ class Application(tk.Frame):
         self.console.color_syntax.set_database_names(self.table_views.keys(),
                                                      field_names)
         if self.selected_table_index is not None \
-           and 0 <= self.selected_table_index <= self.tables.index('end'):
+           and 0 <= self.selected_table_index < self.tables.index('end'):
             self.tables.select(self.selected_table_index)
             self.selected_table_index = None
         self.table_view_saved_states = {}
