@@ -452,7 +452,7 @@ class ColorSyntax:
         "KEY", "LEFT", "LIKE", "LIMIT", "NOT", "NULL", "OFFSET", "OR",
         "ORDER", "OUTER", "PRIMARY", "PROCEDURE", "REPLACE", "RIGHT",
         "ROWNUM", "SELECT", "SET", "TABLE", "TOP", "TRUNCATE", "UNION",
-        "UNIQUE", "UPDATE", "VALUES", "VIEW", "WHERE",
+        "UNIQUE", "UPDATE", "VALUES", "VIEW", "WHERE", "ON",
     )
 
     SQL_DIRECTIVES = ("BEGIN", "COMMIT", "RELEASE", "ROLLBACK", "SAVEPOINT")
