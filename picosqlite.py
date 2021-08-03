@@ -105,7 +105,7 @@ class SQLResult:
 
 @dataclass
 class Schema(SQLResult):
-    schema: Dict[str, List[Tuple[int, str, str, int, Any, int]]]
+    schema: Optional[Dict[str, List[Tuple[int, str, str, int, Any, int]]]] = None
 
 Row = Tuple[Any, ...]
 Rows = List[Row]
@@ -1123,6 +1123,12 @@ class Application(tk.Frame):
             handler(result)
 
     def on_sql_Schema(self, result: Schema):
+        if result.has_error:
+            # May happen when database is locked.
+            self.log("-- Loading schema")
+            self.log_error_and_warning(result)
+            self.statusbar.show("Failed to load database schema!")
+            return
         schema = result.schema
         field_names = set()
         self.tables.add(self.schema, text=self.schema.TAB_NAME)
