@@ -618,7 +618,7 @@ class Console(ttk.Panedwindow):
         self.run_query_bt['state'] = tk.DISABLED
 
     def get_current_query(self):
-        return self.query_text.get('1.0', 'end')
+        return self.query_text.get('1.0', 'end').strip()
 
     def log(self, msg, tags=()):
         if not msg.endswith("\n"):
