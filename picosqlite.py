@@ -523,6 +523,10 @@ class ColorSyntax:
     def highlight(self, text, start, end):
         content = text.get(start, end)
         text.tag_remove("keyword", start, end)
+        text.tag_remove("comment", start, end)
+        text.tag_remove("table", start, end)
+        text.tag_remove("field", start, end)
+        text.tag_remove("directive", start, end)
         for match in self._sql_re.finditer(content):
             for group_name in match.groupdict():
                 match_start, match_end = match.span(group_name)
