@@ -48,6 +48,7 @@ import functools
 import traceback
 from collections import defaultdict
 from pathlib import Path
+import warnings
 
 
 def ensure_file_ext(filename, exts):
@@ -366,16 +367,19 @@ def get_selected_tab_index(notebook):
     return notebook.index(widget_name)
 
 def sqlite_type_to_py(vtype):
-    if "INT" in vtype:
+    # See sqlite type affinity: https://www.sqlite.org/datatype3.html
+    vtype = vtype.upper()
+    if "INT" in vtype or "BOOL" in vtype or "DEC" in vtype or "DATE" in vtype:
         return int
     elif 'REAL' in vtype or 'FLOA' in vtype or "DOUB" in vtype:
         return float
-    elif 'CHAR' in vtype:
+    elif 'CHAR' in vtype or "TEXT" in vtype or "CLOB" in vtype:
         return str
     elif 'BLOB' in vtype:
         return bytes
     else:
-        raise ValueError(f"unsupported sqlite type: {vtype}")
+        warnings.warn(f"unsupported sqlite type '{vtype}'; falling back to int")
+        return int
 
 def escape_sqlite_str(text):
     return "'" + text.replace("'", "''") + "'"
