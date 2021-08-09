@@ -27,6 +27,7 @@ from tkinter.filedialog import askopenfilename
 from tkinter.filedialog import asksaveasfilename
 from tkinter.messagebox import askyesno
 from tkinter.messagebox import showerror
+from tkinter.messagebox import showwarning
 from tkinter.messagebox import showinfo
 from tkinter.messagebox import askquestion
 from tkinter.messagebox import Message
@@ -102,6 +103,12 @@ class SQLResult:
         return self.error is not None \
             or self.internal_error is not None \
             or self.warning is not None
+
+@dataclass
+class OpenDB(SQLResult):
+    def __init__(self, **kwargs):
+        kwargs.setdefault("request", None)
+        super().__init__(**kwargs)
 
 @dataclass
 class Schema(SQLResult):
@@ -239,8 +246,32 @@ class SQLRunner(Task):
                 return
             return self._db.in_transaction
 
+    def _open_db(self):
+        error = None
+        warning = None
+        started_at = datetime.now()
+        internal_error = None
+        try:
+            with self._lock:
+                self._db = sqlite3.connect(self._db_filename)
+        except sqlite3.Error as e:
+            error = e
+        except sqlite3.Warning as w:
+            warning = w
+        except Exception as e:
+            internal_error = sys.exc_info()
+        finally:
+            stopped_at = datetime.now()
+            result = OpenDB(
+                    started_at=started_at,
+                    stopped_at=stopped_at,
+                    error=error,
+                    warning=warning,
+                    internal_error=internal_error)
+            self._push_result(result)
+
     def run(self):
-        self._db = sqlite3.connect(self._db_filename)
+        self._open_db()
         while self._db is not None:
             request = self._requests_q.get()
             if isinstance(request, Request.CloseDB):
@@ -1072,8 +1103,6 @@ class Application(tk.Frame):
         self.sql = self.create_task(SQLRunner, db_filename,
                                     process_result=self.on_sql_result)
         self.sql.start()
-        self.last_refreshed_at = self.sql.last_modification_time
-        self.load_tables()
 
     def close_db(self):
         if not self.safely_close_db():
@@ -1122,6 +1151,30 @@ class Application(tk.Frame):
         else:
             handler(result)
 
+    def on_sql_OpenDB(self, result: OpenDB):
+        if result.has_error:
+            if result.error is not None:
+                showerror(parent=self,
+                          title="Database opening error",
+                          message=str(result.error))
+            elif result.warning is not None:
+                showwarning(parent=self,
+                            title="Database opening warning",
+                            message=str(result.warning))
+            elif result.interal_error is not None:
+                showerror(parent=self,
+                          title="Database opening internal error",
+                          message=str(result.internal_error))
+            else:
+                raise RuntimeError("unexpected state")
+            self.sql.join() # Wait for the thread to finish.
+            self.sql = None
+        else:
+            self.master.title(f"{self.NAME} - {self.sql.db_filename}")
+            self.log(f"-- Database successfully opened in {result.duration}")
+            self.last_refreshed_at = self.sql.last_modification_time
+            self.load_tables()
+
     def on_sql_Schema(self, result: Schema):
         if result.has_error:
             # May happen when database is locked.
@@ -1158,7 +1211,6 @@ class Application(tk.Frame):
         self.db_menu.entryconfigure(DBMenu.RUN_SCRIPT, state=tk.NORMAL)
         self.db_menu.entryconfigure(DBMenu.INTERRUPT, state=tk.DISABLED)
         self.console.enable()
-        self.master.title(f"{self.NAME} - {self.sql.db_filename}")
         self.statusbar.show(StatusMessage.READY)
 
     def on_sql_TableRows(self, result: TableRows):
