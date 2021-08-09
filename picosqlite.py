@@ -248,6 +248,7 @@ class SQLRunner(Task):
             return self._db.in_transaction
 
     def _open_db(self):
+        assert self._db is None
         error = None
         warning = None
         started_at = datetime.now()
