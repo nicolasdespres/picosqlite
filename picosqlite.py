@@ -86,6 +86,10 @@ class Request:
     class CloseDB:
         pass
 
+    @dataclass
+    class DumpDB:
+        filename: str
+
 @dataclass
 class SQLResult:
     request: Any
@@ -135,6 +139,10 @@ class QueryResult(SQLResult):
 
 @dataclass
 class ScriptFinished(SQLResult):
+    pass
+
+@dataclass
+class Dumped(SQLResult):
     pass
 
 class Task(threading.Thread):
@@ -304,8 +312,9 @@ class SQLRunner(Task):
     @handler(result_type=Schema)
     def _handle_LoadSchema(self, request: Request.LoadSchema):
         schema = {}
-        for table_name in iter_tables(self._db):
-            fields = list(self._db.execute(f"pragma table_info('{table_name}')"))
+        table_names = self.list_tables()
+        for table_name in table_names:
+            fields = list(self._execute(f"pragma table_info('{table_name}')"))
             schema[table_name] = fields
         return dict(schema=schema)
 
@@ -314,7 +323,7 @@ class SQLRunner(Task):
 
     @handler(result_type=TableRows)
     def _handle_ViewTable(self, request: Request.ViewTable):
-        cursor = self._db.execute(
+        cursor = self._execute(
             f"SELECT * FROM {request.table_name} "
             f"LIMIT {request.limit} OFFSET {request.offset}")
         column_ids, column_names = get_column_ids(cursor)
@@ -325,7 +334,7 @@ class SQLRunner(Task):
 
     @handler(result_type=QueryResult)
     def _handle_RunQuery(self, request: Request.RunQuery):
-        cursor = self._db.execute(request.query)
+        cursor = self._execute(request.query)
         if cursor.description is None: # No data to fetch.
             return dict()
         else:
@@ -336,8 +345,28 @@ class SQLRunner(Task):
 
     @handler(result_type=ScriptFinished)
     def _handle_RunScript(self, request: Request.RunScript):
-        self._db.executescript(request.script)
+        self._executescript(request.script)
         return dict()
+
+    def _execute(self, *args, **kwargs):
+        with self._lock:
+            return self._db.execute(*args, **kwargs)
+
+    def _executescript(self, *args, **kwargs):
+        with self._lock:
+            return self._db.executescript(*args, **kwargs)
+
+    def list_tables(self):
+        with self._lock:
+            return list(iter_tables(self._db))
+
+    @handler(result_type=Dumped)
+    def _handle_DumpDB(self, request: Request.DumpDB):
+        with open(request.filename, "w") as stream, \
+             self._lock:
+            for line in self._db.iterdump():
+                stream.write('%s\n' % (line,))
+            return {}
 
 def head(it, n=100):
     while n > 0:
@@ -853,6 +882,7 @@ class DBMenu:
     NEW = "New..."
     OPEN = "Open..."
     CLOSE = "Close"
+    DUMP = "Dump..."
     REFRESH = "Refresh"
     RUN_QUERY = "Run query"
     CLEAR_RESULT = "Clear current result"
@@ -947,6 +977,9 @@ class Application(tk.Frame):
                                  accelerator="F2")
         self.db_menu.add_command(label=DBMenu.CLOSE,
                                  command=self.close_action,
+                                 state=tk.DISABLED)
+        self.db_menu.add_command(label=DBMenu.DUMP,
+                                 command=self.dump_action,
                                  state=tk.DISABLED)
         self.db_menu.add_separator()
         self.db_menu.add_command(label=DBMenu.REFRESH,
@@ -1118,6 +1151,7 @@ class Application(tk.Frame):
             return
         self.master.title(self.NAME)
         self.db_menu.entryconfigure(DBMenu.CLOSE, state=tk.DISABLED)
+        self.db_menu.entryconfigure(DBMenu.DUMP, state=tk.DISABLED)
         self.db_menu.entryconfigure(DBMenu.REFRESH, state=tk.DISABLED)
         self.db_menu.entryconfigure(DBMenu.RUN_QUERY, state=tk.DISABLED)
         self.db_menu.entryconfigure(DBMenu.RUN_SCRIPT, state=tk.DISABLED)
@@ -1162,20 +1196,7 @@ class Application(tk.Frame):
 
     def on_sql_OpenDB(self, result: OpenDB):
         if result.has_error:
-            if result.error is not None:
-                showerror(parent=self,
-                          title="Database opening error",
-                          message=str(result.error))
-            elif result.warning is not None:
-                showwarning(parent=self,
-                            title="Database opening warning",
-                            message=str(result.warning))
-            elif result.interal_error is not None:
-                showerror(parent=self,
-                          title="Database opening internal error",
-                          message=str(result.internal_error))
-            else:
-                raise RuntimeError("unexpected state")
+            self.show_result_error(result, "Database opening")
             self.sql.join() # Wait for the thread to finish.
             self.sql = None
         else:
@@ -1215,6 +1236,7 @@ class Application(tk.Frame):
             self.selected_table_index = None
         self.table_view_saved_states = {}
         self.db_menu.entryconfigure(DBMenu.CLOSE, state=tk.NORMAL)
+        self.db_menu.entryconfigure(DBMenu.DUMP, state=tk.NORMAL)
         self.db_menu.entryconfigure(DBMenu.REFRESH, state=tk.NORMAL)
         self.db_menu.entryconfigure(DBMenu.RUN_QUERY, state=tk.NORMAL)
         self.db_menu.entryconfigure(DBMenu.RUN_SCRIPT, state=tk.NORMAL)
@@ -1579,6 +1601,49 @@ class Application(tk.Frame):
         query = f"DELETE FROM {table_view.table_name} WHERE {cond};"
         self.run_query(query)
         return True
+
+    def dump_action(self):
+        if self.sql is None:
+            return False;
+        dump_filename = asksaveasfilename(
+            parent=self,
+            title="SQLite dump file",
+            filetypes=[("SQLite script file", ".sql"),
+                       ("All files", ".*")],
+            initialdir=self.get_initial_open_dir())
+        if not dump_filename:
+            return False
+        dump_filename = ensure_file_ext(dump_filename, (".sql",))
+        self.dump(dump_filename)
+        return True
+
+    def dump(self, filename):
+        assert self.sql is not None
+        self.statusbar.show(f"Dumping database to {filename}...")
+        self.sql.put_request(Request.DumpDB(filename=filename))
+
+    def on_sql_Dumped(self, result: Dumped):
+        if result.has_error:
+            self.show_result_error(result, "Database dump")
+        else:
+            self.log(f"-- Database dumped to {result.request.filename} in {result.duration}")
+        self.statusbar.show(StatusMessage.READY)
+
+    def show_result_error(self, result, prefix):
+        if result.error is not None:
+            showerror(parent=self,
+                      title=f"{prefix} error",
+                      message=str(result.error))
+        elif result.warning is not None:
+            showwarning(parent=self,
+                        title=f"{prefix} warning",
+                        message=str(result.warning))
+        elif result.interal_error is not None:
+            showerror(parent=self,
+                      title=f"{prefix} internal error",
+                      message=str(result.internal_error))
+        else:
+            raise RuntimeError("unexpected result state error")
 
 def write_to_tk_text_log(log, msg, tags=()):
     numlines = int(log.index('end - 1 line').split('.')[0])
