@@ -522,6 +522,14 @@ class ColorSyntax:
 
     SQL_DIRECTIVES = ("BEGIN", "COMMIT", "RELEASE", "ROLLBACK", "SAVEPOINT")
 
+    SQL_DATATYPES = (
+        "INT", "INTEGER", "NUMERIC",
+        "TEXT", "CHAR", "VARCHAR",
+        "BLOB",
+        "REAL", "FLOAT", "DOUBLE",
+        "NULL"
+    )
+
     def __init__(self):
         self.tables = set()
         self.fields = set()
@@ -535,11 +543,13 @@ class ColorSyntax:
             | (?P<table>      \b(?i:%(tables)s)\b)
             | (?P<field>      \b(?i:%(fields)s)\b)
             | (?P<directive>  \b(?i:%(directives)s)\b)
+            | (?P<datatypes>  \b(?i:%(datatypes)s)\b)
             """ % {
                 "keywords": "|".join(re.escape(i) for i in self.SQL_KEYWORDS),
                 "tables": "|".join(re.escape(i) for i in self.tables),
                 "fields": "|".join(re.escape(i) for i in self.fields),
                 "directives": "|".join(re.escape(i) for i in self.SQL_DIRECTIVES),
+                "datatypes": "|".join(re.escape(i) for i in self.SQL_DATATYPES),
             },
             re.MULTILINE | re.VERBOSE)
 
@@ -549,6 +559,7 @@ class ColorSyntax:
         text.tag_configure("table", foreground="orange")
         text.tag_configure("field", foreground="green")
         text.tag_configure("directive", foreground="blue", underline=True)
+        text.tag_configure("datatypes", foreground="green", underline=True)
 
     def highlight(self, text, start, end):
         content = text.get(start, end)
@@ -557,6 +568,7 @@ class ColorSyntax:
         text.tag_remove("table", start, end)
         text.tag_remove("field", start, end)
         text.tag_remove("directive", start, end)
+        text.tag_remove("datatypes", start, end)
         for match in self._sql_re.finditer(content):
             for group_name in match.groupdict():
                 match_start, match_end = match.span(group_name)
