@@ -706,7 +706,7 @@ class StatusBar(tk.Frame):
 
 class StatusMessage:
     READY_TO_OPEN = "Ready to open a database"
-    READY = "Ready to run queries..."
+    READY = "Ready to run queries."
 
 class TableView(tk.Frame):
 
