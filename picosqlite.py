@@ -517,10 +517,12 @@ class ColorSyntax:
         "KEY", "LEFT", "LIKE", "LIMIT", "NOT", "NULL", "OFFSET", "OR",
         "ORDER", "OUTER", "PRIMARY", "PROCEDURE", "REPLACE", "RIGHT",
         "ROWNUM", "SELECT", "SET", "TABLE", "TOP", "TRUNCATE", "UNION",
-        "UNIQUE", "UPDATE", "VALUES", "VIEW", "WHERE", "ON",
+        "UNIQUE", "UPDATE", "VALUES", "VIEW", "WHERE", "ON", "OFF",
+        "REFERENCES",
     )
 
-    SQL_DIRECTIVES = ("BEGIN", "COMMIT", "RELEASE", "ROLLBACK", "SAVEPOINT")
+    SQL_DIRECTIVES = ("BEGIN", "COMMIT", "RELEASE", "ROLLBACK", "SAVEPOINT",
+                      "PRAGMA")
 
     SQL_DATATYPES = (
         "INT", "INTEGER", "NUMERIC",
