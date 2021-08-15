@@ -671,7 +671,11 @@ class Console(ttk.Panedwindow):
         self._update_run_query_bt_state()
 
     def _update_run_query_bt_state(self):
-        self.run_query_bt['state'] = tk.NORMAL if sqlite3.complete_statement(self.get_current_query()) else tk.DISABLED
+        self.run_query_bt['state'] = tk.NORMAL if self._is_valid_query(self.get_current_query()) else tk.DISABLED
+
+    def _is_valid_query(self, query):
+        return sqlite3.complete_statement(query) \
+            or query.lstrip().startswith(".")
 
 class StatusBar(tk.Frame):
 
