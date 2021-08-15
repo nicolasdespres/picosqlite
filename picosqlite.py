@@ -49,6 +49,7 @@ import traceback
 from collections import defaultdict
 from pathlib import Path
 import warnings
+import shlex
 
 
 def ensure_file_ext(filename, exts):
@@ -136,14 +137,6 @@ class QueryResult(SQLResult):
     truncated: bool = False
     column_ids: Optional[ColumnIDS] = None
     column_names: Optional[ColumnNames] = None
-
-@dataclass
-class ScriptFinished(SQLResult):
-    pass
-
-@dataclass
-class Dumped(SQLResult):
-    pass
 
 class Task(threading.Thread):
 
@@ -334,19 +327,38 @@ class SQLRunner(Task):
 
     @handler(result_type=QueryResult)
     def _handle_RunQuery(self, request: Request.RunQuery):
-        cursor = self._execute(request.query)
-        if cursor.description is None: # No data to fetch.
-            return dict()
+        argv = shlex.split(request.query.strip())
+        if argv[0].startswith("."):
+            return self._handle_directive(argv, request)
         else:
-            column_ids, column_names = get_column_ids(cursor)
-            rows, truncated = eat_atmost(cursor)
-            return dict(rows=rows, truncated=truncated,
-                        column_ids=column_ids, column_names=column_names)
+            cursor = self._execute(request.query)
+            if cursor.description is None: # No data to fetch.
+                return dict()
+            else:
+                column_ids, column_names = get_column_ids(cursor)
+                rows, truncated = eat_atmost(cursor)
+                return dict(rows=rows, truncated=truncated,
+                            column_ids=column_ids, column_names=column_names)
 
-    @handler(result_type=ScriptFinished)
-    def _handle_RunScript(self, request: Request.RunScript):
-        self._executescript(request.script)
+    def _handle_directive(self, argv, request: Request.RunQuery):
+        directive = argv[0][1:]
+        handler_name = f"_handle_directive_{directive}"
+        try:
+            handler = getattr(self, handler_name)
+        except AttributeError:
+            raise RuntimeError(f"invalid directive: '{directive}'")
+        else:
+            return handler(argv, request)
+
+    def _handle_directive_run(self, argv, request):
+        if len(argv) != 2:
+            raise RuntimeError(f".run expects 1 argument")
+        self._run_script(argv[1])
         return dict()
+
+    def _run_script(self, filename):
+        with open(filename) as stream:
+            self._executescript(stream.read())
 
     def _execute(self, *args, **kwargs):
         with self._lock:
@@ -360,13 +372,17 @@ class SQLRunner(Task):
         with self._lock:
             return list(iter_tables(self._db))
 
-    @handler(result_type=Dumped)
-    def _handle_DumpDB(self, request: Request.DumpDB):
-        with open(request.filename, "w") as stream, \
+    def _handle_directive_dump(self, argv, request):
+        if len(argv) != 2:
+            raise RuntimeError(f".dump expects 1 argument")
+        self._dump(argv[1])
+        return {}
+
+    def _dump(self, filename):
+        with open(filename, "w") as stream, \
              self._lock:
             for line in self._db.iterdump():
                 stream.write('%s\n' % (line,))
-            return {}
 
 def head(it, n=100):
     while n > 0:
@@ -532,6 +548,8 @@ class ColorSyntax:
         "NULL"
     )
 
+    INTERNALS = ("run", "dump")
+
     def __init__(self):
         self.tables = set()
         self.fields = set()
@@ -540,18 +558,20 @@ class ColorSyntax:
     def _recompile(self):
         self._sql_re = re.compile(
             r"""
-              (?P<comment>    ^--.*$)
+              (?P<comment>    ^\s*--.*$)
             | (?P<keyword>    \b(?i:%(keywords)s)\b)
             | (?P<table>      \b(?i:%(tables)s)\b)
             | (?P<field>      \b(?i:%(fields)s)\b)
             | (?P<directive>  \b(?i:%(directives)s)\b)
             | (?P<datatypes>  \b(?i:%(datatypes)s)\b)
+            | (?P<internal>   ^\s*\.(?i:%(internals)s)\b)
             """ % {
                 "keywords": "|".join(re.escape(i) for i in self.SQL_KEYWORDS),
                 "tables": "|".join(re.escape(i) for i in self.tables),
                 "fields": "|".join(re.escape(i) for i in self.fields),
                 "directives": "|".join(re.escape(i) for i in self.SQL_DIRECTIVES),
                 "datatypes": "|".join(re.escape(i) for i in self.SQL_DATATYPES),
+                "internals": "|".join(re.escape(i) for i in self.INTERNALS),
             },
             re.MULTILINE | re.VERBOSE)
 
@@ -562,6 +582,7 @@ class ColorSyntax:
         text.tag_configure("field", foreground="green")
         text.tag_configure("directive", foreground="blue", underline=True)
         text.tag_configure("datatypes", foreground="green", underline=True)
+        text.tag_configure("internal", foreground="purple")
 
     def highlight(self, text, start, end):
         content = text.get(start, end)
@@ -571,6 +592,7 @@ class ColorSyntax:
         text.tag_remove("field", start, end)
         text.tag_remove("directive", start, end)
         text.tag_remove("datatypes", start, end)
+        text.tag_remove("internal", start, end)
         for match in self._sql_re.finditer(content):
             for group_name in match.groupdict():
                 match_start, match_end = match.span(group_name)
@@ -1547,30 +1569,7 @@ class Application(tk.Frame):
         return self.run_script(script_filename)
 
     def run_script(self, script_filename):
-        try:
-            script_file = open(script_filename)
-        except OSError as e:
-            showerror(parent=self, title="File error", message=str(e))
-            return False
-        else:
-            self.sql.put_request(
-                Request.RunScript(script_filename=script_filename,
-                                  script=script_file.read()))
-            self.statusbar.show(f"Running script {script_filename}...")
-            self.statusbar.start(mode="indeterminate")
-            self.enable_sql_execution_state()
-            return True
-        finally:
-            script_file.close();
-
-    def on_sql_ScriptFinished(self, result: ScriptFinished):
-        self.statusbar.show(StatusMessage.READY)
-        self.statusbar.stop()
-        self.log(f"\n-- Run script '{result.request.script_filename}' in {result.duration}")
-        self.log_error_and_warning(result)
-        self.refresh_action()
-        self.disable_sql_execution_state()
-        self.statusbar.set_in_transaction(self.sql.in_transaction)
+        self.run_query(f".run {shlex.quote(script_filename)}")
 
     def enable_sql_execution_state(self):
         self.console.disable()
@@ -1635,15 +1634,7 @@ class Application(tk.Frame):
 
     def dump(self, filename):
         assert self.sql is not None
-        self.statusbar.show(f"Dumping database to {filename}...")
-        self.sql.put_request(Request.DumpDB(filename=filename))
-
-    def on_sql_Dumped(self, result: Dumped):
-        if result.has_error:
-            self.show_result_error(result, "Database dump")
-        else:
-            self.log(f"-- Database dumped to {result.request.filename} in {result.duration}")
-        self.statusbar.show(StatusMessage.READY)
+        self.run_query(f".dump {shlex.quote(filename)}")
 
     def show_result_error(self, result, prefix):
         if result.error is not None:
