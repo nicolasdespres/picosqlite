@@ -1478,7 +1478,7 @@ class Application(tk.Frame):
         self.log(f"\n-- Run at {result.started_at}\n")
         self.log(result.request.query)
         self.log_error_and_warning(result)
-        self.log(f"-- duration: {result.duration}")
+        footer_parts = [f"-- duration: {result.duration}"]
         self.console.run_query_bt.configure(
             text="Run", command=self.run_query_action)
         self.statusbar.stop()
@@ -1487,19 +1487,22 @@ class Application(tk.Frame):
             # Refresh because it is probably an insert/delete operation.
             self.refresh_action()
         else:
+            tab_name = f"*Result-{self.result_view_count}"
             result_table = self.create_table_view(ResultTableView)
             result_table.append(result.rows,
                                 result.column_ids,
                                 result.column_names,
                                 result.truncated)
             self.tables.insert(0, result_table,
-                               text=f"*Result-{self.result_view_count}")
+                               text=tab_name)
             self.result_view_count += 1
             self.db_menu.entryconfigure(DBMenu.CLEAR_RESULT,
                                         state=tk.NORMAL)
             self.db_menu.entryconfigure(DBMenu.CLEAR_ALL_RESULTS,
                                         state=tk.NORMAL)
             self.tables.select(0)
+            footer_parts.append(f"(see <{tab_name}>)")
+        self.log(" ".join(footer_parts))
         self.disable_sql_execution_state()
         self.statusbar.set_in_transaction(self.sql.in_transaction)
 
