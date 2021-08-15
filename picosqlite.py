@@ -656,6 +656,10 @@ class Console(ttk.Panedwindow):
     def get_current_query(self):
         return self.query_text.get('1.0', 'end').strip()
 
+    def set_current_query(self, query):
+        self.query_text.delete('1.0', 'end')
+        self.query_text.insert(query)
+
     def log(self, msg, tags=()):
         if not msg.endswith("\n"):
             msg += "\n"
@@ -919,6 +923,7 @@ class DBMenu:
     OPEN = "Open..."
     CLOSE = "Close"
     DUMP = "Dump..."
+    LOAD = "Load..."
     REFRESH = "Refresh"
     RUN_QUERY = "Run query"
     CLEAR_RESULT = "Clear current result"
@@ -1044,6 +1049,9 @@ class Application(tk.Frame):
         self.db_menu.add_separator()
         self.db_menu.add_command(label=DBMenu.DUMP,
                                  command=self.dump_action,
+                                 state=tk.DISABLED)
+        self.db_menu.add_command(label=DBMenu.LOAD,
+                                 command=self.load_action,
                                  state=tk.DISABLED)
         self.db_menu.add_separator()
         self.db_menu.add_command(label=DBMenu.EXIT, command=self.exit_action)
@@ -1189,6 +1197,7 @@ class Application(tk.Frame):
         self.master.title(self.NAME)
         self.db_menu.entryconfigure(DBMenu.CLOSE, state=tk.DISABLED)
         self.db_menu.entryconfigure(DBMenu.DUMP, state=tk.DISABLED)
+        self.db_menu.entryconfigure(DBMenu.LOAD, state=tk.DISABLED)
         self.db_menu.entryconfigure(DBMenu.REFRESH, state=tk.DISABLED)
         self.db_menu.entryconfigure(DBMenu.RUN_QUERY, state=tk.DISABLED)
         self.db_menu.entryconfigure(DBMenu.RUN_SCRIPT, state=tk.DISABLED)
@@ -1274,6 +1283,7 @@ class Application(tk.Frame):
         self.table_view_saved_states = {}
         self.db_menu.entryconfigure(DBMenu.CLOSE, state=tk.NORMAL)
         self.db_menu.entryconfigure(DBMenu.DUMP, state=tk.NORMAL)
+        self.db_menu.entryconfigure(DBMenu.LOAD, state=tk.NORMAL)
         self.db_menu.entryconfigure(DBMenu.REFRESH, state=tk.NORMAL)
         self.db_menu.entryconfigure(DBMenu.RUN_QUERY, state=tk.NORMAL)
         self.db_menu.entryconfigure(DBMenu.RUN_SCRIPT, state=tk.NORMAL)
@@ -1655,6 +1665,25 @@ class Application(tk.Frame):
                       message=str(result.internal_error))
         else:
             raise RuntimeError("unexpected result state error")
+
+    def load_action(self):
+        if self.sql is None:
+            return False;
+        csv_filename = askopenfilename(
+            parent=self,
+            title="CSV file",
+            filetypes=[("CSV file", ".csv"),
+                       ("All files", ".*")],
+            initialdir=self.get_initial_open_dir())
+        if not csv_filename:
+            return False
+        self.load(csv_filename)
+        return True
+
+    def load(self, filename):
+        assert self.sql is not None
+        self.console.set_current_query(
+            f".load <table_name> {shlex.quote(filename)}")
 
 def write_to_tk_text_log(log, msg, tags=()):
     numlines = int(log.index('end - 1 line').split('.')[0])
