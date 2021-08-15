@@ -1560,6 +1560,8 @@ class Application(tk.Frame):
             self.statusbar.start(mode="indeterminate")
             self.enable_sql_execution_state()
             return True
+        finally:
+            script_file.close();
 
     def on_sql_ScriptFinished(self, result: ScriptFinished):
         self.statusbar.show(StatusMessage.READY)
