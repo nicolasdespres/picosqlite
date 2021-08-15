@@ -1014,9 +1014,6 @@ class Application(tk.Frame):
         self.db_menu.add_command(label=DBMenu.CLOSE,
                                  command=self.close_action,
                                  state=tk.DISABLED)
-        self.db_menu.add_command(label=DBMenu.DUMP,
-                                 command=self.dump_action,
-                                 state=tk.DISABLED)
         self.db_menu.add_separator()
         self.db_menu.add_command(label=DBMenu.REFRESH,
                                  command=self.refresh_action,
@@ -1043,6 +1040,10 @@ class Application(tk.Frame):
         self.db_menu.add_command(label=DBMenu.DELETE_ROWS,
                                  command=self.delete_rows_action,
                                  accelerator="F9",
+                                 state=tk.DISABLED)
+        self.db_menu.add_separator()
+        self.db_menu.add_command(label=DBMenu.DUMP,
+                                 command=self.dump_action,
                                  state=tk.DISABLED)
         self.db_menu.add_separator()
         self.db_menu.add_command(label=DBMenu.EXIT, command=self.exit_action)
