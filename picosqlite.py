@@ -327,6 +327,8 @@ class SQLRunner(Task):
 
     @handler(result_type=QueryResult)
     def _handle_RunQuery(self, request: Request.RunQuery):
+        if len(request.query) == 0:
+            return dict()
         argv = shlex.split(request.query.strip())
         if argv[0].startswith("."):
             return self._handle_directive(argv, request)
@@ -1479,6 +1481,8 @@ class Application(tk.Frame):
         self.run_query(self.console.get_current_query())
 
     def run_query(self, query):
+        if len(query) == 0:
+            return
         self.statusbar.show("Running query...")
         self.statusbar.start(mode="indeterminate")
         self.sql.put_request(Request.RunQuery(query=query))
