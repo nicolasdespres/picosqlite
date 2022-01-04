@@ -675,6 +675,11 @@ class Console(ttk.Panedwindow):
         return sqlite3.complete_statement(query) \
             or query.lstrip().startswith(".")
 
+    def clear(self):
+        self.cmdlog_text.configure(state=tk.NORMAL)
+        clear_text_widget_content(self.cmdlog_text)
+        self.cmdlog_text.configure(state=tk.DISABLED)
+
 class StatusBar(tk.Frame):
 
     def __init__(self, master=None):
@@ -925,6 +930,7 @@ class DBMenu:
     RUN_QUERY = "Run query"
     CLEAR_RESULT = "Clear current result"
     CLEAR_ALL_RESULTS = "Clear all results"
+    CLEAR_CONSOLE = "Clear console"
     RUN_SCRIPT = "Run script..."
     INTERRUPT = "Interrupt"
     DELETE_ROWS = "Delete rows"
@@ -1031,6 +1037,9 @@ class Application(tk.Frame):
                                  state=tk.DISABLED)
         self.db_menu.add_command(label=DBMenu.CLEAR_ALL_RESULTS,
                                  command=self.clear_all_results_action,
+                                 state=tk.DISABLED)
+        self.db_menu.add_command(label=DBMenu.CLEAR_CONSOLE,
+                                 command=self.clear_console,
                                  state=tk.DISABLED)
         self.db_menu.add_command(label=DBMenu.RUN_SCRIPT,
                                  command=self.run_script_action,
@@ -1516,8 +1525,13 @@ class Application(tk.Frame):
         else:
             self.statusbar.show("Failed to interrupt!")
 
+    def clear_console(self):
+        self.console.clear()
+        self.db_menu.entryconfigure(DBMenu.CLEAR_CONSOLE, state=tk.DISABLED)
+
     def log(self, msg, tags=()):
         self.console.log(msg, tags=tags)
+        self.db_menu.entryconfigure(DBMenu.CLEAR_CONSOLE, state=tk.NORMAL)
 
     def log_error(self, e):
         self.log(f"Error: {e}\n", tags=("error",))
@@ -1668,8 +1682,11 @@ def write_to_tk_text_log(log, msg, tags=()):
     log.insert('end', msg, tags)
     log['state'] = tk.DISABLED
 
-def set_text_widget_content(text_widget, content, tags=None):
+def clear_text_widget_content(text_widget):
     text_widget.delete('1.0', tk.END)
+
+def set_text_widget_content(text_widget, content, tags=None):
+    clear_text_widget_content(text_widget)
     text_widget.insert('1.0', content, tags)
 
 def get_column_id(name, seen):
