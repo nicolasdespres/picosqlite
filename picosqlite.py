@@ -645,11 +645,9 @@ class Console(ttk.Panedwindow):
 
     def enable(self):
         self.query_text['state'] = tk.NORMAL
-        self.query_text['background'] = "white"
         self._update_run_query_bt_state()
 
     def disable(self):
-        self.query_text['background'] = "gray"
         self.query_text['state'] = tk.DISABLED
         self.run_query_bt['state'] = tk.DISABLED
 
