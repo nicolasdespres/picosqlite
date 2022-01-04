@@ -245,7 +245,7 @@ class SQLRunner(Task):
     def in_transaction(self):
         with self._lock:
             if self._db is None:
-                return
+                return False
             return self._db.in_transaction
 
     def _open_db(self):
@@ -1180,10 +1180,20 @@ class Application(tk.Frame):
     def close_action(self):
         if self.sql is None:
             return True
-        is_yes = askyesno(
-            title="Close DB confirmation",
-            message="Are you sure you want to close the database?",
-            parent=self)
+        if self.sql.in_transaction:
+            is_yes = askyesno(
+                parent=self,
+                title="SQL",
+                icon="warning",
+                message=\
+                "You are in the middle of a transaction.\n\n"\
+                "Do you really want to close the DB and "\
+                "lose the uncommitted data ?")
+        else:
+            is_yes = askyesno(
+                title="Close DB confirmation",
+                message="Are you sure you want to close the database?",
+                parent=self)
         if not is_yes:
             return False
         self.close_db()
@@ -1208,6 +1218,7 @@ class Application(tk.Frame):
         self.db_menu.entryconfigure(DBMenu.INTERRUPT, state=tk.DISABLED)
         self.console.disable()
         self.statusbar.show(StatusMessage.READY_TO_OPEN)
+        self.statusbar.set_in_transaction(False)
         self.unload_tables()
         self.clear_all_results_action()
         self.last_refreshed_at = None
