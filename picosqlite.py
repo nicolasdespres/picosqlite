@@ -492,7 +492,7 @@ class SchemaFrame(tk.Frame):
             self._tree.insert(table_name, 'end', item_id,
                               values=self._format_row(field[1:]))
         self._tree.item(table_name, open=True)
-        self._tree.column("#0", width=10, stretch=False)
+        self._tree.column("#0", width=20, stretch=False)
 
     def finish_table_insertion(self):
         self._format_row.configure_columns(self._tree)
