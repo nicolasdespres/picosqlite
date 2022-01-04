@@ -15,6 +15,7 @@ schema viewer.
 - Schema and table viewer with support for large tables
 - Query runner and result viewer
 - Script runner
+- Syntax highlighting
 
 # Installation
 
