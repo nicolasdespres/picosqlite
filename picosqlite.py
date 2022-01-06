@@ -1272,6 +1272,7 @@ class Application(tk.Frame):
             self.log("-- Loading schema")
             self.log_error_and_warning(result)
             self.statusbar.show("Failed to load database schema!")
+            self.close_db()
             return
         schema = result.schema
         field_names = set()
