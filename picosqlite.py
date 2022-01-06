@@ -127,6 +127,7 @@ ColumnNames = Tuple[str, ...]
 
 @dataclass
 class TableRows(SQLResult):
+    """Response when loading data from a table to view it."""
     rows: Optional[Rows] = None
     column_ids: Optional[ColumnIDS] = None
     column_names: Optional[ColumnNames] = None
