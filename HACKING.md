@@ -34,3 +34,7 @@ git log vX.Y.Z..
 ```bash
 ./release.sh
 ```
+
+5. Push the commits and the tags.
+
+6. Create a release a GitHub and drop the file in the dist/ directory.
