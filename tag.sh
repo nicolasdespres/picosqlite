@@ -28,6 +28,20 @@ usage()
     | sed -e 's/^# //; s/^#//'
 }
 
+# Print its arguments on stderr prefixed by the base name of this script.
+stderr()
+{
+  echo >&2 "`basename "$0"`: $@"
+}
+
+# Print its arguments on stderr prefixed by the base name of this script and
+# a 'fatal' tag.
+fatal()
+{
+  stderr "fatal: $@"
+  exit 1
+}
+
 if [ $# -ne 1 ]
 then
   usage
@@ -35,4 +49,7 @@ then
 fi
 
 VERSION="$1"
+RELEASE_NOTES_FILE="RelNotes/v$VERSION.txt"
+[ -r "$RELEASE_NOTES_FILE" ] \
+  || fatal "Please write the release note file: '$RELEASE_NOTES_FILE'"
 git tag -F "RelNotes/v$VERSION.txt" "v$VERSION"
