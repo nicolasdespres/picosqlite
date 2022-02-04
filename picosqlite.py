@@ -330,11 +330,11 @@ class SQLRunner(Task):
     def _handle_RunQuery(self, request: Request.RunQuery):
         if len(request.query) == 0:
             return dict()
-        argv = shlex.split(request.query.strip())
-        if argv[0].startswith("."):
-            return self._handle_directive(argv, request)
+        query = request.query.strip()
+        if query.startswith("."):
+            return self._handle_directive(shlex.split(query), request)
         else:
-            cursor = self._execute(request.query)
+            cursor = self._execute(query)
             if cursor.description is None: # No data to fetch.
                 return dict()
             else:
