@@ -1,0 +1,3 @@
+Bug fix release
+
+Fix internal error when query contains a single quote.
