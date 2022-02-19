@@ -44,4 +44,5 @@ git commit -m 'Add release note for vX.Y.Z'
 
 6. Push the commits and the tags.
 
-7. Create a release a GitHub and drop the file in the dist/ directory.
+7. Create a release on GitHub and drop the file in the dist/ directory
+   there.
