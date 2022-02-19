@@ -22,19 +22,26 @@ while browsing the change log since last release:
 git log vX.Y.Z..
 ```
 
-3. Create a git tag
+3. Commit the release note file
+
+```bash
+git add RelNotes/vX.Y.Z.txt
+git commit -m 'Add release note for vX.Y.Z'
+```
+
+4. Create a git tag
 
 ```bash
 ./tag.sh <VERSION>
 ```
 
-4. Create a release (it is a single python file). The version number
+5. Create a release (it is a single python file). The version number
    will be extracted using git-describe(1).
 
 ```bash
 ./release.sh
 ```
 
-5. Push the commits and the tags.
+6. Push the commits and the tags.
 
-6. Create a release a GitHub and drop the file in the dist/ directory.
+7. Create a release a GitHub and drop the file in the dist/ directory.
