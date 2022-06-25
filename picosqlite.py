@@ -854,7 +854,7 @@ class NamedTableView(TableView):
 
     def insert(self, rows, column_ids, column_names, offset, limit):
         ys_begin, ys_end = self.ys.get()
-        # print(f"DBG: insert into {self.fetcher.table_name} {len(rows)} (asked {limit}) at {offset}; current=[{self.begin_offset}, {self.end_offset}]; visible=[{ys_begin}, {ys_end}]")
+        # print(f"DBG: insert into {self.fetcher.table_name} {len(rows)} (asked {limit}) at {offset}; current=[{self.begin_offset}, {self.end_offset}]; visible=[{ys_begin}, {ys_end}]")  # noqa: E501
         format_row = RowFormatter(column_ids, column_names)
         if self.begin_offset == 0 and self.end_offset == 0:
             assert self.nb_view_items == 0
