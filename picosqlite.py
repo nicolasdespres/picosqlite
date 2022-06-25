@@ -1508,7 +1508,6 @@ class Application(tk.Frame):
 
     def update_value(self, tree, item_id):
         table_name = tree._table_name
-        columns = tree['columns']
         field = self.schema.get_field_by_id(table_name, tree._selected_column)
         pk = self.schema.get_table_primary_key(table_name)
         if pk is None:
