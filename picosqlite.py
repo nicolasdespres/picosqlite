@@ -1329,6 +1329,7 @@ class Application(tk.Frame):
             self.close_db()
             return
         schema = result.schema
+        assert schema is not None  # None only when there are errors.
         field_names = set()
         self.tables.add(self.schema, text=self.schema.TAB_NAME)
         for table_name, fields in schema.items():
