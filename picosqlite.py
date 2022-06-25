@@ -1266,7 +1266,8 @@ class Application(tk.Frame):
 
     def open_db(self, db_filename):
         if self.sql is not None:
-            raise RuntimeError(f"A database is already opened {self.sql.db_filename}")
+            raise RuntimeError(
+                f"A database is already opened {self.sql.db_filename}")
         self.sql = self.create_task(SQLRunner, db_filename,
                                     process_result=self.on_sql_result)
         self.sql.start()
@@ -1719,8 +1720,11 @@ class Application(tk.Frame):
             f"table '{table_view.table_name}'?")
         if ans == 'no':
             return False
-        ids = ", ".join(str(table_view.tree.item(i, 'values')[0]) for i in selection)
-        query = f"DELETE FROM {table_view.table_name} WHERE {pk.name} IN ({ids});"
+        ids = ", ".join(str(table_view.tree.item(i, 'values')[0])
+                        for i in selection)
+        query = f"""\
+        DELETE FROM {table_view.table_name} WHERE {pk.name} IN ({ids});
+        """
         self.run_query(query)
         return True
 
