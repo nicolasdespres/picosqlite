@@ -1690,9 +1690,9 @@ class Application(tk.Frame):
         ans = askquestion(
             parent=self,
             title="Delete confirmation",
-            message=\
-            "Are you sure you want to delete {} rows from table '{}'?"\
-            .format(len(selection), table_view.table_name))
+            message="Are you sure you want to "
+            f"delete {len(selection)} rows from "
+            f"table '{table_view.table_name}'?")
         if ans == 'no':
             return False
         ids = ", ".join(str(table_view.tree.item(i, 'values')[0]) for i in selection)
