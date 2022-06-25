@@ -1598,7 +1598,7 @@ class Application(tk.Frame):
         self.log(f"Warning: {w}\n", tags=("warning",))
 
     def log_internal_error(self, etype, value, tb):
-        self.log(f"Internal Error!!!\n", tags=("error",))
+        self.log("Internal Error!!!\n", tags=("error",))
         for line in traceback.format_exception(etype, value, tb):
             self.log(line, tags=("error",))
 
