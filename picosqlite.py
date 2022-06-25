@@ -130,11 +130,14 @@ class OpenDB(SQLResult):
         super().__init__(**kwargs)
 
 
+ColumnDesc = Tuple[int, str, str, int, Any, int]
+
+
 @dataclass
 class Schema(SQLResult):
     """The result of the LoadSchema request."""
 
-    schema: Optional[Dict[str, List[Tuple[int, str, str, int, Any, int]]]] = None
+    schema: Optional[Dict[str, List[ColumnDesc]]] = None
 
 
 Row = Tuple[Any, ...]
