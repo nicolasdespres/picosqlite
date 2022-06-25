@@ -378,7 +378,7 @@ class SQLRunner(Task):
 
     def _handle_directive_run(self, argv, request):
         if len(argv) != 2:
-            raise RuntimeError(f".run expects 1 argument")
+            raise RuntimeError(f".run expects 1 argument, not {len(argv)}")
         self._run_script(argv[1])
         return dict()
 
@@ -400,7 +400,7 @@ class SQLRunner(Task):
 
     def _handle_directive_dump(self, argv, request):
         if len(argv) != 2:
-            raise RuntimeError(f".dump expects 1 argument")
+            raise RuntimeError(f".dump expects 1 argument, not {len(argv)}")
         self._dump(argv[1])
         return {}
 
