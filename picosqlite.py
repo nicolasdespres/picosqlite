@@ -1442,9 +1442,10 @@ class Application(tk.Frame):
         selected_tab = tables_notebook.select()
         if not selected_tab:
             return
+        is_result_tab = self.is_result_view_tab(selected_tab)
         self.db_menu.entryconfigure(
             DBMenu.CLEAR_RESULT,
-            state=tk.NORMAL if self.is_result_view_tab(selected_tab) else tk.DISABLED)
+            state=tk.NORMAL if is_result_tab else tk.DISABLED)
         table_view = tables_notebook.nametowidget(selected_tab)
         if isinstance(table_view, SchemaFrame):
             self.reset_shown_value()
