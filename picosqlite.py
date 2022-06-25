@@ -184,7 +184,7 @@ def handler(result_type=None):
                 error = e
             except sqlite3.Warning as w:
                 warning = w
-            except Exception as e:
+            except Exception:
                 internal_error = sys.exc_info()
             finally:
                 stopped_at = datetime.now()
@@ -286,7 +286,7 @@ class SQLRunner(Task):
             error = e
         except sqlite3.Warning as w:
             warning = w
-        except Exception as e:
+        except Exception:
             internal_error = sys.exc_info()
         finally:
             stopped_at = datetime.now()
