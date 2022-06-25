@@ -879,7 +879,10 @@ class NamedTableView(TableView):
                 self.end_offset -= 1
                 self.tree.delete(self.end_offset)
         else:
-            raise ValueError(f"wrong fetched window ! current=[{self.begin_offset}, {self.end_offset}]; fetched=[{offset}, {offset+limit}]")
+            raise ValueError(
+                f"wrong fetched window ! "
+                f"current=[{self.begin_offset}, {self.end_offset}]; "
+                f"fetched=[{offset}, {offset+limit}]")
         format_row.configure_columns(self.tree)
         # Prevent auto-scroll down after inserting items.
         if self.nb_view_items > 0:
