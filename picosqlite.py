@@ -1693,7 +1693,6 @@ class Application(tk.Frame):
             .format(len(selection), table_view.table_name))
         if ans == 'no':
             return False
-        values = table_view.tree.item(selection[0], "values")
         ids = ", ".join(str(table_view.tree.item(i, 'values')[0]) for i in selection)
         query = f"DELETE FROM {table_view.table_name} WHERE {pk.name} IN ({ids});"
         self.run_query(query)
