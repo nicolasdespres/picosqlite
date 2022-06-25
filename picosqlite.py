@@ -59,37 +59,49 @@ def ensure_file_ext(filename, exts):
     else:
         return str(path) + exts[0]
 
+
 def running_on_windows():
     return os.name == 'nt'
 
+
 class Request:
+    """Collection of request class accepted by the runner thread."""
 
     @dataclass
     class LoadSchema:
-        pass
+        """Load the database schema into memory."""
 
     @dataclass
     class ViewTable:
+        """Load a slice of a given table for viewing."""
+
         table_name: str
         offset: int
         limit: int
 
     @dataclass
     class RunQuery:
+        """Run the given query."""
+
         query: str
 
     @dataclass
     class RunScript:
+        """Run the given script file."""
+
         script_filename: str
         script: str
 
     @dataclass
     class CloseDB:
-        pass
+        """Close the opened database."""
 
     @dataclass
     class DumpDB:
+        """Dump the currently loaded DB into the given file named filename."""
+
         filename: str
+
 
 @dataclass
 class SQLResult:
@@ -110,27 +122,35 @@ class SQLResult:
             or self.internal_error is not None \
             or self.warning is not None
 
+
 @dataclass
 class OpenDB(SQLResult):
     def __init__(self, **kwargs):
         kwargs.setdefault("request", None)
         super().__init__(**kwargs)
 
+
 @dataclass
 class Schema(SQLResult):
+    """The result of the LoadSchema request."""
+
     schema: Optional[Dict[str, List[Tuple[int, str, str, int, Any, int]]]] = None
+
 
 Row = Tuple[Any, ...]
 Rows = List[Row]
 ColumnIDS = Tuple[str, ...]
 ColumnNames = Tuple[str, ...]
 
+
 @dataclass
 class TableRows(SQLResult):
     """Response when loading data from a table to view it."""
+
     rows: Optional[Rows] = None
     column_ids: Optional[ColumnIDS] = None
     column_names: Optional[ColumnNames] = None
+
 
 @dataclass
 class QueryResult(SQLResult):
@@ -139,14 +159,17 @@ class QueryResult(SQLResult):
     column_ids: Optional[ColumnIDS] = None
     column_names: Optional[ColumnNames] = None
 
+
 class Task(threading.Thread):
 
     def __init__(self, root=None, **thread_kwargs):
         super().__init__(**thread_kwargs)
         self.root = root
 
+
 def handler(result_type=None):
     assert result_type is not None
+
     def handle(func):
         @functools.wraps(func)
         def wrapper(self, request, *args, **kwargs):
@@ -175,6 +198,7 @@ def handler(result_type=None):
                     **payload)
         return wrapper
     return handle
+
 
 class SQLRunner(Task):
     """Run SQL query in a different thread to allow interruption.
@@ -335,7 +359,7 @@ class SQLRunner(Task):
             return self._handle_directive(shlex.split(query), request)
         else:
             cursor = self._execute(query)
-            if cursor.description is None: # No data to fetch.
+            if cursor.description is None:  # No data to fetch.
                 return dict()
             else:
                 column_ids, column_names = get_column_ids(cursor)
@@ -387,6 +411,7 @@ class SQLRunner(Task):
             for line in self._db.iterdump():
                 stream.write('%s\n' % (line,))
 
+
 def head(it, n=100):
     while n > 0:
         try:
@@ -394,6 +419,7 @@ def head(it, n=100):
         except StopIteration:
             break
         n -= 1
+
 
 def eat_atmost(it, n=1000):
     objects = []
@@ -409,11 +435,13 @@ def eat_atmost(it, n=1000):
         truncated = True
     return objects, truncated
 
+
 def get_selected_tab_index(notebook):
     widget_name = notebook.select()
-    if not widget_name: # Rarely happen when no tables are present.
+    if not widget_name:  # Rarely happen when no tables are present.
         return None
     return notebook.index(widget_name)
+
 
 def sqlite_type_to_py(vtype):
     # See sqlite type affinity: https://www.sqlite.org/datatype3.html
@@ -430,8 +458,10 @@ def sqlite_type_to_py(vtype):
         warnings.warn(f"unsupported sqlite type '{vtype}'; falling back to int")
         return int
 
+
 def escape_sqlite_str(text):
     return "'" + text.replace("'", "''") + "'"
+
 
 @dataclass
 class Field:
@@ -456,6 +486,7 @@ class Field:
             return escape_sqlite_str(value)
         else:
             return str(value)
+
 
 class SchemaFrame(tk.Frame):
 
@@ -524,6 +555,7 @@ class SchemaFrame(tk.Frame):
             for name, info in fields.items():
                 if info.cid == cid:
                     return info
+
 
 class ColorSyntax:
 
@@ -609,13 +641,14 @@ class ColorSyntax:
         self.fields = fields
         self._recompile()
 
+
 class Console(ttk.Panedwindow):
 
     def __init__(self, master=None, run_query_command=None,
                  command_log_maxline=1000):
         super().__init__(master, orient=tk.VERTICAL)
 
-        ### Query
+        # **Query**
         self.query_frame = tk.Frame()
         self.query_text = ScrolledText(self.query_frame, wrap="word")
         self.query_text.bind("<<Modified>>", self.on_modified_query)
@@ -628,7 +661,7 @@ class Console(ttk.Panedwindow):
         self.query_frame.rowconfigure(0, weight=1)
         self.query_frame.columnconfigure(0, weight=1)
 
-        ### Command log
+        # **Command log**
         self.cmdlog_text = ScrolledText(wrap="word", background="lightgray",
                                         height=100)
         self.cmdlog_text.MAXLINES = command_log_maxline
@@ -638,11 +671,11 @@ class Console(ttk.Panedwindow):
         self.cmdlog_text.tag_configure("error", foreground="red")
         self.cmdlog_text.tag_configure("warning", foreground="orange")
 
-        # Register
+        # **Register**
         self.add(self.cmdlog_text, weight=4)
         self.add(self.query_frame, weight=1)
 
-        # Syntax coloring
+        # **Syntax coloring**
         self.color_syntax = ColorSyntax()
         self.color_syntax.configure(self.query_text)
         self.color_syntax.configure(self.cmdlog_text)
@@ -684,6 +717,7 @@ class Console(ttk.Panedwindow):
         clear_text_widget_content(self.cmdlog_text)
         self.cmdlog_text.configure(state=tk.DISABLED)
 
+
 class StatusBar(tk.Frame):
 
     def __init__(self, master=None):
@@ -719,9 +753,8 @@ class StatusBar(tk.Frame):
             self._in_transaction.configure(text="OK", background="green")
 
     def show(self, text, delay=None):
-        """Show _text_ during delay second in the status bar.
-        """
-        ### Clear any pending temporary text.
+        """Show _text_ during delay second in the status bar."""
+        # Clear any pending temporary text.
         if self._temporary_text is not None:
             self.after_cancel(self._temporary_text)
             self._temporary_text = None
@@ -737,9 +770,11 @@ class StatusBar(tk.Frame):
             self._temporary_text = self.after(int(delay*1000), remove)
         self.update_idletasks()
 
+
 class StatusMessage:
     READY_TO_OPEN = "Ready to open a database"
     READY = "Ready to run queries."
+
 
 class TableView(tk.Frame):
 
@@ -749,7 +784,7 @@ class TableView(tk.Frame):
         super().__init__(master=master)
         self.tree = ttk.Treeview(self, show="headings", selectmode='browse')
         self.tree._selected_column = 0
-        ### Scrollbars
+        # **Scrollbars**
         self.ys = ttk.Scrollbar(self, orient='vertical',
                                 command=self.tree.yview)
         xs = ttk.Scrollbar(self, orient='horizontal', command=self.tree.xview)
@@ -761,6 +796,7 @@ class TableView(tk.Frame):
         self.ys.grid(column=1, row=0, rowspan=2, sticky="nsw")
         xs.grid(column=0, row=1, columnspan=2, sticky="ews")
         self.tree.bind("<<TreeviewSelect>>", on_treeview_selected)
+
 
 class NamedTableView(TableView):
 
@@ -784,7 +820,7 @@ class NamedTableView(TableView):
         font = nametofont(ttk.Style().lookup("Treeview", "font"))
         self.linespace = font.metrics("linespace")
         self.begin_offset = 0
-        self.end_offset = 0 # excluded
+        self.end_offset = 0  # excluded
         self.fetching = False
         self.previous_visible_item = None
 
@@ -813,25 +849,25 @@ class NamedTableView(TableView):
             self.previous_visible_item = None
         else:
             visible_item = self.get_visible_item()
-        if offset == self.end_offset: # append to the end?
-            ### Insert new items at the end
+        if offset == self.end_offset:  # append to the end?
+            # Insert new items at the end
             for row in rows:
                 self.tree.insert('', 'end',
                                  iid=self.end_offset,
                                  values=format_row(row))
                 self.end_offset += 1
-            ### Delete exceeded items from the beginning.
+            # Delete exceeded items from the beginning.
             while self.nb_view_items > self.limit:
                 self.tree.delete(self.begin_offset)
                 self.begin_offset += 1
-        elif offset + limit == self.begin_offset: # insert from the beginning?
-            ### Insert new items from the beginning
+        elif offset + limit == self.begin_offset:  # insert from the beginning?
+            # Insert new items from the beginning
             for row in reversed(rows):
                 self.begin_offset -= 1
                 self.tree.insert('', 0,
                                  iid=self.begin_offset,
                                  values=format_row(row))
-            ### Delete exceeded items at the end.
+            # Delete exceeded items at the end.
             while self.nb_view_items > self.limit:
                 self.end_offset -= 1
                 self.tree.delete(self.end_offset)
@@ -900,6 +936,7 @@ class NamedTableView(TableView):
             self.end_offset -= 1
             self.tree.delete(self.end_offset)
 
+
 class Fetcher:
 
     def __init__(self, app, table_name):
@@ -913,6 +950,7 @@ class Fetcher:
                               offset=offset,
                               limit=limit))
 
+
 class ResultTableView(TableView):
 
     def append(self, rows, column_ids, column_names, truncated):
@@ -924,6 +962,7 @@ class ResultTableView(TableView):
         format_row.configure_columns(self.tree)
         if truncated:
             self.tree.insert('', 'end', values=["..."] * len(rows[0]))
+
 
 class DBMenu:
     NEW = "New..."
@@ -939,6 +978,7 @@ class DBMenu:
     INTERRUPT = "Interrupt"
     DELETE_ROWS = "Delete rows"
     EXIT = "Exit"
+
 
 class Application(tk.Frame):
 
@@ -1260,7 +1300,7 @@ class Application(tk.Frame):
     def on_sql_OpenDB(self, result: OpenDB):
         if result.has_error:
             self.show_result_error(result, "Database opening")
-            self.sql.join() # Wait for the thread to finish.
+            self.sql.join()  # Wait for the thread to finish.
             self.sql = None
         else:
             self.master.title(f"{self.NAME} - {self.sql.db_filename}")
@@ -1336,7 +1376,7 @@ class Application(tk.Frame):
     def refresh_action(self):
         self.selected_table_index = get_selected_tab_index(self.tables)
         self.table_view_saved_states = {
-            n:tv.save_state()
+            n: tv.save_state()
             for n, tv in self.table_views.items()
         }
         self.unload_tables()
@@ -1369,7 +1409,7 @@ class Application(tk.Frame):
             self.tables.forget(schema_tab_idx)
 
     def load_tables(self):
-        if self.sql is None: # No database opened
+        if self.sql is None:  # No database opened
             return
         self.statusbar.show("Loading database schema...")
         self.sql.put_request(Request.LoadSchema())
@@ -1513,7 +1553,7 @@ class Application(tk.Frame):
             text="Run", command=self.run_query_action)
         self.statusbar.stop()
         self.statusbar.show(StatusMessage.READY)
-        if result.rows is None: # No data fetched.
+        if result.rows is None:  # No data fetched.
             # Refresh because it is probably an insert/delete operation.
             self.refresh_action()
         else:
@@ -1572,7 +1612,7 @@ class Application(tk.Frame):
 
     def clear_result_action(self):
         tab_idx = self.tables.select()
-        if not tab_idx: # No tab selected.
+        if not tab_idx:  # No tab selected.
             return
         if self.is_result_view_tab(tab_idx):
             self.tables.forget(tab_idx)
@@ -1691,6 +1731,7 @@ class Application(tk.Frame):
         else:
             raise RuntimeError("unexpected result state error")
 
+
 def write_to_tk_text_log(log, msg, tags=()):
     numlines = int(log.index('end - 1 line').split('.')[0])
     log['state'] = tk.NORMAL
@@ -1701,12 +1742,15 @@ def write_to_tk_text_log(log, msg, tags=()):
     log.insert('end', msg, tags)
     log['state'] = tk.DISABLED
 
+
 def clear_text_widget_content(text_widget):
     text_widget.delete('1.0', tk.END)
+
 
 def set_text_widget_content(text_widget, content, tags=None):
     clear_text_widget_content(text_widget)
     text_widget.insert('1.0', content, tags)
+
 
 def get_column_id(name, seen):
     new_name = name
@@ -1716,6 +1760,7 @@ def get_column_id(name, seen):
         i += 1
     seen.add(new_name)
     return new_name
+
 
 def get_column_ids(cursor):
     """Compute *unique* column name from the cursor description."""
@@ -1728,6 +1773,7 @@ def get_column_ids(cursor):
         names.append(name)
         ids.append(id)
     return ids, names
+
 
 class RowFormatter:
 
@@ -1780,8 +1826,10 @@ class RowFormatter:
                         stretch=False)
             tree.heading(column_id, text=column_name)
 
+
 def format_row_values(row):
     return tuple(format_row_value(i) for i in row)
+
 
 def format_row_value(v):
     if isinstance(v, str):
@@ -1789,11 +1837,14 @@ def format_row_value(v):
     else:
         return v
 
+
 def mangle_value(v):
     return repr(v)[1:-1]
 
+
 def unmangle_value(v):
     return eval(f'"""{v}"""')
+
 
 def iter_tables(db):
     cursor = db.execute(
@@ -1802,6 +1853,7 @@ def iter_tables(db):
         "WHERE type='table' AND name NOT LIKE 'sqlite_%';")
     for row in cursor:
         yield row[0]
+
 
 def print_hierarchy(w, depth=0):
     """Print widget ownership hierarchy."""
@@ -1812,6 +1864,7 @@ def print_hierarchy(w, depth=0):
           + ' y=' + str(w.winfo_y()))
     for i in w.winfo_children():
         print_hierarchy(i, depth+1)
+
 
 def start_gui(db_path):
     root = tk.Tk()
@@ -1824,6 +1877,7 @@ def start_gui(db_path):
         app.destroy()
     return 0
 
+
 def build_cli():
     parser = argparse.ArgumentParser(
         description=__doc__,
@@ -1835,10 +1889,12 @@ def build_cli():
         help="Path to the DB file to open.")
     return parser
 
+
 def main(argv):
     cli = build_cli()
     options = cli.parse_args(argv[1:])
     return start_gui(options.db_file)
+
 
 if __name__ == "__main__":
     sys.exit(main(sys.argv))
