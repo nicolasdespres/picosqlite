@@ -1697,7 +1697,7 @@ class Application(tk.Frame):
 
     def dump_action(self):
         if self.sql is None:
-            return False;
+            return False
         dump_filename = asksaveasfilename(
             parent=self,
             title="SQLite dump file",
