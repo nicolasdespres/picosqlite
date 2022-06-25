@@ -454,7 +454,8 @@ def sqlite_type_to_py(vtype):
     elif 'BLOB' in vtype:
         return bytes
     else:
-        warnings.warn(f"unsupported sqlite type '{vtype}'; falling back to int")
+        warnings.warn(
+            f"unsupported sqlite type '{vtype}'; falling back to int")
         return int
 
 
@@ -472,7 +473,8 @@ class Field:
     primary_key: bool
 
     @classmethod
-    def from_sqlite(cls, cid, name, vtype, notnull, default_value, primary_key):
+    def from_sqlite(cls, cid, name, vtype, notnull,
+                    default_value, primary_key):
         return cls(cid=cid,
                    name=name,
                    vtype=sqlite_type_to_py(vtype),
@@ -877,7 +879,9 @@ class NamedTableView(TableView):
         if self.nb_view_items > 0:
             if not self.tree.exists(visible_item):
                 # Scrollbar lower bound may lag during fast scrolling.
-                visible_item = int(self.nb_view_items * 3/8) + self.begin_offset
+                visible_item = \
+                    int(self.nb_view_items * 3/8) \
+                    + self.begin_offset
             self.tree.see(visible_item)
         self.fetching = False
 
@@ -1622,7 +1626,8 @@ class Application(tk.Frame):
             if self.is_result_view_tab(tab_idx):
                 self.tables.forget(tab_idx)
         self.result_view_count = 0
-        self.db_menu.entryconfigure(DBMenu.CLEAR_ALL_RESULTS, state=tk.DISABLED)
+        self.db_menu.entryconfigure(DBMenu.CLEAR_ALL_RESULTS,
+                                    state=tk.DISABLED)
 
     def run_script_action(self):
         if self.sql is None:
@@ -1818,7 +1823,8 @@ class RowFormatter:
         if not self.has_formatted:
             return
         tree.configure(columns=self.column_ids)
-        for i, (column_id, column_name) in enumerate(zip(self.column_ids, self.column_names)):
+        for i, (column_id, column_name) in enumerate(zip(self.column_ids,
+                                                         self.column_names)):
             tree.column(column_id,
                         width=min(self.maxsizes[i], 512),
                         anchor=self.anchor(i),
