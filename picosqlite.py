@@ -706,8 +706,14 @@ class Console(ttk.Panedwindow):
         self.query_text.edit_modified(False)
         self._update_run_query_bt_state()
 
+    def _get_run_query_bt_state(self):
+        if self._is_valid_query(self.get_current_query()):
+            return tk.NORMAL
+        else:
+            return tk.DISABLED
+
     def _update_run_query_bt_state(self):
-        self.run_query_bt['state'] = tk.NORMAL if self._is_valid_query(self.get_current_query()) else tk.DISABLED
+        self.run_query_bt['state'] = self._get_run_query_bt_state()
 
     def _is_valid_query(self, query):
         return sqlite3.complete_statement(query) \
