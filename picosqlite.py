@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- encoding: utf-8 -*-
-"""A tiny sqlite view interface in TK intended for teaching.
+"""
+A tiny sqlite view interface in TK intended for teaching.
 
 No dependency apart from python 3.7.
 """
@@ -200,7 +201,8 @@ def handler(result_type=None):
 
 
 class SQLRunner(Task):
-    """Run SQL query in a different thread to allow interruption.
+    """
+    Run SQL query in a different thread to allow interruption.
 
     Warning: public method (not starting with '_') may safely be called from
     an other thread.
