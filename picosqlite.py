@@ -965,7 +965,9 @@ class Fetcher:
         self.app = app
 
     def __call__(self, offset, limit):
-        self.app.statusbar.show(f"Loading {limit} records from {offset} in table '{self.table_name}'...", delay=0.5)
+        self.app.statusbar.show(
+            f"Loading {limit} records from {offset} "
+            f"in table '{self.table_name}'...", delay=0.5)
         self.app.sql.put_request(
             Request.ViewTable(table_name=self.table_name,
                               offset=offset,
@@ -1542,7 +1544,9 @@ class Application(tk.Frame):
         ans = askquestion(
             parent=self,
             title="Update confirmation",
-            message=f"Are you sure you want to change the value of field '{field.name}' of row with {pk.name} = {pk_value} in table '{table_name}'?")
+            message="Are you sure you want to change the value of "
+            f"field '{field.name}' of row with {pk.name} = {pk_value} "
+            f"in table '{table_name}'?")
         if ans == 'no':
             return False
         query = "UPDATE {} SET {} = {} WHERE {} = {};"\
