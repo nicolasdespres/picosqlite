@@ -598,6 +598,10 @@ class ColorSyntax:
         self._recompile()
 
     def _recompile(self):
+
+        def mk_regex_any_word(words):
+            return "|".join(re.escape(i) for i in words)
+
         self._sql_re = re.compile(
             r"""
               (?P<comment>    ^\s*--.*$)
@@ -608,12 +612,12 @@ class ColorSyntax:
             | (?P<datatypes>  \b(?i:%(datatypes)s)\b)
             | (?P<internal>   ^\s*\.(?i:%(internals)s)\b)
             """ % {
-                "keywords": "|".join(re.escape(i) for i in self.SQL_KEYWORDS),
-                "tables": "|".join(re.escape(i) for i in self.tables),
-                "fields": "|".join(re.escape(i) for i in self.fields),
-                "directives": "|".join(re.escape(i) for i in self.SQL_DIRECTIVES),
-                "datatypes": "|".join(re.escape(i) for i in self.SQL_DATATYPES),
-                "internals": "|".join(re.escape(i) for i in self.INTERNALS),
+                "keywords": mk_regex_any_word(self.SQL_KEYWORDS),
+                "tables": mk_regex_any_word(self.tables),
+                "fields": mk_regex_any_word(self.fields),
+                "directives": mk_regex_any_word(self.SQL_DIRECTIVES),
+                "datatypes": mk_regex_any_word(self.SQL_DATATYPES),
+                "internals": mk_regex_any_word(self.INTERNALS),
             },
             re.MULTILINE | re.VERBOSE)
 
