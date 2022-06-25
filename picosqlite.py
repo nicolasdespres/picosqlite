@@ -1230,9 +1230,9 @@ class Application(tk.Frame):
                 parent=self,
                 title="SQL",
                 icon="warning",
-                message=\
-                "You are in the middle of a transaction.\n\n"\
-                "Do you really want to close the DB and "\
+                message=""
+                "You are in the middle of a transaction.\n\n"
+                "Do you really want to close the DB and "
                 "lose the uncommitted data ?")
         else:
             is_yes = askyesno(
@@ -1367,7 +1367,8 @@ class Application(tk.Frame):
             showinfo(
                 parent=self,
                 title="Database",
-                message="Your database has been modified from an outside process.")
+                message="Your database has been modified "
+                "from an outside process.")
             do_refresh = True
         if do_refresh:
             self.refresh_action()
@@ -1642,8 +1643,8 @@ class Application(tk.Frame):
             ans = askquestion(
                 parent=self,
                 title="Commit confirmation",
-                message=\
-                "You are in the middle of a transaction.\n\n"\
+                message=""
+                "You are in the middle of a transaction.\n\n"
                 "Do you want to commit your changes?")
             if ans == 'no':
                 return False
@@ -1683,7 +1684,8 @@ class Application(tk.Frame):
         if pk is None:
             showerror(parent=self,
                       title="Schema error",
-                      message=f"No primary key for table {table_name}")
+                      message="No primary key "
+                      f"for table {table_view.table_name}")
             return False
         ans = askquestion(
             parent=self,
