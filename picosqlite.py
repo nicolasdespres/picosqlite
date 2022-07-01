@@ -1925,11 +1925,83 @@ def start_gui(db_path, query_or_script=None):
                       query_or_script=query_or_script,
                       master=root)
     root.protocol('WM_DELETE_WINDOW', app.exit_action)
+    root.report_callback_exception = _on_tk_exception
     try:
         root.mainloop()
     except SystemExit:
         app.destroy()
+    except Exception:
+        report_exception(*sys.exc_info())
     return 0
+
+
+def _on_tk_exception(etype, value, tb):
+    report_exception(etype, value, tb)
+
+
+def report_exception(etype, value, tb,
+                     title: str = "Internal error"):
+    logging.exception(title)
+    error_lines = traceback.format_exception(etype, value, tb)
+    LongTextDialog(title, "".join(error_lines))
+
+
+class LongTextDialog(tk.Toplevel):
+
+    def __init__(self, title, text_content, master=None):
+        super().__init__(master=master)
+        self.title(title)
+
+        self.main_frame = ttk.Frame(master=self)
+        self.main_frame.grid(row=0, column=0, sticky="nsew")
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(0, weight=1)
+
+        self.text = ScrolledText(
+            master=self.main_frame,
+            wrap="none",
+            width=80,
+            height=10,
+            relief="sunken",
+            borderwidth=1,
+        )
+        self.text.grid(row=1, column=0, columnspan=2, sticky="nsew",
+                       padx=20, pady=20)
+        self.text.delete('1.0', tk.END)
+        self.text.insert('end', text_content)
+        self.text.see("1.0")
+
+        self.copy_button = ttk.Button(
+            master=self.main_frame,
+            command=self.copy_action,
+            text="Copy to clipboard",
+            width=20
+        )
+        self.copy_button.grid(row=2, column=0, sticky="w",
+                              padx=20, pady=(0, 20))
+
+        self.close_button = ttk.Button(
+            master=self.main_frame,
+            command=self.close_action,
+            text="Close",
+            default="active",
+        )
+        self.close_button.grid(row=2, column=1, sticky="w",
+                               padx=20, pady=(0, 20))
+        self.close_button.focus_set()
+
+        self.main_frame.columnconfigure(0, weight=1)
+        self.main_frame.rowconfigure(1, weight=1)
+
+        self.protocol("WM_DELETE_WINDOW", self.close_action)
+        self.bind("<Escape>", self.close_action, True)
+
+    def copy_action(self):
+        self.clipboard_clear()
+        self.clipboard_append(self.text.get("1.0", "end"))
+
+    def close_action(self):
+        self.destroy()
 
 
 def rev_dict(d):
