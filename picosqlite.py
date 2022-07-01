@@ -63,7 +63,15 @@ def ensure_file_ext(filename, exts):
 
 
 def running_on_windows():
-    return os.name == 'nt'
+    return sys.platform == 'win32'
+
+
+def running_on_mac_os():
+    return sys.platform == "darwin"
+
+
+def running_on_linux():
+    return sys.platform == "linux"
 
 
 class Request:
