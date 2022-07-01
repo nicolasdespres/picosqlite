@@ -2028,12 +2028,8 @@ def get_default_log_file():
         return None
 
 
-def started_by_window_launcher():
-    return Path(sys.executable).stem.endswith('w')
-
-
 def running_without_console():
-    return running_on_windows() and started_by_window_launcher()
+    return sys.stdout is None
 
 
 def mkdir_p(path):
