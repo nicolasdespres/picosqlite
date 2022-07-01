@@ -2062,5 +2062,20 @@ def main(argv):
                      query_or_script=options.query_or_script)
 
 
+def protected_main(argv):
+    status = 0
+    try:
+        status = main(argv)
+    except Exception:
+        sys.stdout.flush()
+        sys.stderr.flush()
+        print("=" * 50, flush=True)
+        traceback.print_exception(*sys.exc_info())
+        if running_on_windows():
+            input("Press ENTER to quit.")
+    finally:
+        return status
+
+
 if __name__ == "__main__":
-    sys.exit(main(sys.argv))
+    sys.exit(protected_main(sys.argv))
