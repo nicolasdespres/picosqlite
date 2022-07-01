@@ -1015,7 +1015,8 @@ class Application(tk.Frame):
     NAME = "Pico SQLite"
     COMMAND_LOG_HISTORY = 1000
 
-    def __init__(self, db_path=None, master=None):
+    def __init__(self, db_path=None,
+                 query_or_script=None, master=None):
         super().__init__(master)
         self.init_widget()
         self.init_menu()
@@ -1023,6 +1024,12 @@ class Application(tk.Frame):
         self.init_logic()
         if db_path is not None:
             self.open_db(db_path)
+        if query_or_script is not None:
+            if os.path.isfile(query_or_script):
+                self.run_script(query_or_script)
+            else:
+                self.run_query(query_or_script)
+
 
     def init_widget(self):
         self.init_statusbar()
@@ -1910,10 +1917,12 @@ def print_hierarchy(w, depth=0):
         print_hierarchy(i, depth+1)
 
 
-def start_gui(db_path):
+def start_gui(db_path, query_or_script=None):
     root = tk.Tk()
     root.geometry("600x800")
-    app = Application(db_path=db_path, master=root)
+    app = Application(db_path=db_path,
+                      query_or_script=query_or_script,
+                      master=root)
     root.protocol('WM_DELETE_WINDOW', app.exit_action)
     try:
         root.mainloop()
@@ -1931,13 +1940,19 @@ def build_cli():
         action="store",
         nargs="?",
         help="Path to the DB file to open.")
+    parser.add_argument(
+        "query_or_script",
+        nargs='?',
+        action="store",
+        help="Script or query to run after start-up.")
     return parser
 
 
 def main(argv):
     cli = build_cli()
     options = cli.parse_args(argv[1:])
-    return start_gui(options.db_file)
+    return start_gui(options.db_file,
+                     query_or_script=options.query_or_script)
 
 
 if __name__ == "__main__":
