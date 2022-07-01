@@ -1164,7 +1164,7 @@ class Application(tk.Frame):
         dlg = Message(parent=self,
                       title="About",
                       message=f"Pico SQLite version {__version__}\n"
-                      "Copyright © Nicolas Desprès from 2021")
+                      "Copyright © 2021-today Nicolas Desprès")
         dlg.show()
 
     def exit_action(self):
