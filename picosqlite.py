@@ -1161,9 +1161,13 @@ class Application(tk.Frame):
         self.last_refresed_at = None
 
     def about_action(self):
+        PY_VERSION = str(sys.version_info.major) + "." \
+            + str(sys.version_info.minor) + "." \
+            + str(sys.version_info.micro)
         dlg = Message(parent=self,
                       title="About",
                       message=f"Pico SQLite version {__version__}\n"
+                      f"(running on Python version {PY_VERSION})\n\n"
                       "Copyright © 2021-today Nicolas Desprès")
         dlg.show()
 
