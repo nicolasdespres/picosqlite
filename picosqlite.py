@@ -1382,6 +1382,7 @@ class Application(tk.Frame):
             return
         schema = result.schema
         assert schema is not None  # None only when there are errors.
+        self.unload_tables()  # Unload tables before to load them.
         field_names = set()
         self.tables.add(self.schema, text=self.schema.TAB_NAME)
         for table_name, fields in schema.items():
@@ -1446,7 +1447,6 @@ class Application(tk.Frame):
             n: tv.save_state()
             for n, tv in self.table_views.items()
         }
-        self.unload_tables()
         LOGGER.debug("load tables for refreshing")
         self.load_tables()
         if self.sql is not None:
