@@ -52,6 +52,7 @@ from pathlib import Path
 import warnings
 import shlex
 import logging
+import subprocess as sp
 
 
 def ensure_file_ext(filename, exts):
@@ -1151,6 +1152,9 @@ class Application(tk.Frame):
 
         self.help_menu = tk.Menu(self.menubar)
         self.menubar.add_cascade(label="Help", menu=self.help_menu)
+        self.help_menu.add_command(label="Open data folder...",
+                                   command=self.open_data_folder_action)
+        self.help_menu.add_separator()
         self.help_menu.add_command(label="About...", command=self.about_action)
 
         # On Windows, we have to explicitly bind the accelerator...
@@ -1182,6 +1186,9 @@ class Application(tk.Frame):
         self.result_view_count = 0
         self.selected_table_index = None
         self.last_refresed_at = None
+
+    def open_data_folder_action(self):
+        open_path_in_system_file_manager(get_data_folder())
 
     def about_action(self):
         PY_VERSION = str(sys.version_info.major) + "." \
@@ -1924,6 +1931,21 @@ def log_widget_hierarchy(w, depth=0):
                 + ' y=' + str(w.winfo_y()))
     for i in w.winfo_children():
         log_widget_hierarchy(i, depth+1)
+
+
+def open_path_in_system_file_manager(path):
+    if running_on_mac_os():
+        # http://stackoverflow.com/a/3520693/261181
+        # -R doesn't allow showing hidden folders
+        sp.run(["open", os.fspath(path)])
+    elif running_on_linux():
+        sp.run(["xdg-open", os.fspath(path)])
+    elif running_on_windows():
+        sp.run(["explorer", os.fspath(path)])
+    else:
+        raise RuntimeError(
+            "do not know how to open path "
+            f"on platform '{sys.platform}'")
 
 
 def start_gui(db_path, query_or_script=None):
