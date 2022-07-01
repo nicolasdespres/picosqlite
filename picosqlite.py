@@ -245,6 +245,7 @@ class SQLRunner(Task):
             return os.path.getmtime(self._db_filename)
 
     def put_request(self, request):
+        LOGGER.debug("put request: %r", request)
         self._requests_q.put(request)
 
     def get_result(self):
@@ -1306,6 +1307,7 @@ class Application(tk.Frame):
         self.sql = self.create_task(SQLRunner, db_filename,
                                     process_result=self.on_sql_result)
         self.sql.start()
+        LOGGER.debug("opening DB")
 
     def close_db(self):
         if not self.safely_close_db():
@@ -1320,6 +1322,7 @@ class Application(tk.Frame):
         self.console.disable()
         self.statusbar.show(StatusMessage.READY_TO_OPEN)
         self.statusbar.set_in_transaction(False)
+        LOGGER.debug("unload tables when closing DB")
         self.unload_tables()
         self.clear_all_results_action()
         self.last_refreshed_at = None
@@ -1347,6 +1350,7 @@ class Application(tk.Frame):
         if self.sql is None or self.sql.is_closing:
             return
         result = self.sql.get_result()
+        LOGGER.debug("get request's result: %r", result)
         result_name = type(result).__name__
         handler_name = f"on_sql_{result_name}"
         try:
@@ -1365,6 +1369,7 @@ class Application(tk.Frame):
             self.master.title(f"{self.NAME} - {self.sql.db_filename}")
             self.log(f"-- Database successfully opened in {result.duration}")
             self.last_refreshed_at = self.sql.last_modification_time
+            LOGGER.debug("load table after database opening")
             self.load_tables()
 
     def on_sql_Schema(self, result: Schema):
@@ -1428,6 +1433,7 @@ class Application(tk.Frame):
                 "from an outside process.")
             do_refresh = True
         if do_refresh:
+            LOGGER.debug("automatic refresh")
             self.refresh_action()
         else:
             table_view.insert(result.rows,
@@ -1441,6 +1447,7 @@ class Application(tk.Frame):
             for n, tv in self.table_views.items()
         }
         self.unload_tables()
+        LOGGER.debug("load tables for refreshing")
         self.load_tables()
         if self.sql is not None:
             self.last_refreshed_at = self.sql.last_modification_time
@@ -1618,6 +1625,7 @@ class Application(tk.Frame):
         self.statusbar.show(StatusMessage.READY)
         if result.rows is None:  # No data fetched.
             # Refresh because it is probably an insert/delete operation.
+            LOGGER.debug("refresh after query with no result")
             self.refresh_action()
         else:
             tab_name = f"*Result-{self.result_view_count}"
