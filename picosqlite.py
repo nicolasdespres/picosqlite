@@ -21,6 +21,7 @@ import os
 import sqlite3
 from datetime import datetime
 from time import time
+from time import strftime
 import tkinter as tk
 import tkinter.ttk as ttk
 from tkinter.scrolledtext import ScrolledText
@@ -1946,18 +1947,61 @@ LOG_LEVEL2STR = {
 LOG_STR2LEVEL = rev_dict(LOG_LEVEL2STR)
 
 
+def get_default_log_file():
+    if running_on_windows():
+        logdir = Path(os.environ["LOCALAPPDATA"])/"PicoSQLite"/"Logs"
+        filename = strftime("%Y-%m-%d--%H-%M-%S") \
+            + " PicoSQLite-Log.txt"
+        return logdir/filename
+    else:
+        return None
+
+
+def started_by_window_launcher():
+    return Path(sys.executable).stem.endswith('w')
+
+
+def running_without_console():
+    return running_on_windows() and started_by_window_launcher()
+
+
+def mkdir_p(path):
+    """Similar to ``mkdir -p path``."""
+    try:
+        os.makedirs(path)
+    except FileExistsError:
+        pass
+
+
 def init_logger(filename=None, level=None):
     logger_options = {}
     if filename is not None:
-        logger_options['filename'] = filename
-        logger_options['filemode'] = 'a'
-        logger_options['encoding'] ='utf-8'
+        mkdir_p(os.path.dirname(filename))
+        logger_options['filename'] = os.fspath(filename)
+        logger_options['filemode'] = 'w'
+        # Not supported in version bellow
+        if sys.version_info >= (3,9):
+            logger_options['encoding'] = 'utf8'
     else:
         logger_options['stream'] = sys.stdout
     logging.basicConfig(format='%(asctime)s: %(levelname)s: %(message)s',
                         level=level,
                         **logger_options)
     logging.info('Starting')
+
+
+def respawn_without_console():
+    if not running_on_windows():
+        return
+    win_exec = Path(sys.executable).parent/"pythonw.exe"
+    if not win_exec.is_file():
+        return
+    argv = sys.argv.copy()
+    argv.insert(0, os.fspath(win_exec))
+    argv.append('--no-respawn')
+    logging.info("cwd: %s", os.getcwd())
+    logging.info("respawning: %r", argv)
+    os.execv(win_exec, argv)
 
 
 def build_cli():
@@ -1973,6 +2017,10 @@ def build_cli():
     parser = argparse.ArgumentParser(
         description=__doc__,
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument(
+        "--no-respawn",
+        action="store_true",
+        help="Do not try to respawn without console on Windows.")
     parser.add_argument(
         "-l", "--logfile",
         action="store",
@@ -1999,7 +2047,17 @@ def build_cli():
 def main(argv):
     cli = build_cli()
     options = cli.parse_args(argv[1:])
-    init_logger(filename=options.logfile, level=options.verbose)
+
+    # Force to use a log file is running without a console.
+    logfile = options.logfile
+    if logfile is None and running_without_console():
+        logfile = get_default_log_file()
+    init_logger(filename=logfile, level=options.verbose)
+
+    # Respawn without console
+    if not options.no_respawn and not running_without_console():
+        respawn_without_console()
+
     return start_gui(options.db_file,
                      query_or_script=options.query_or_script)
 
