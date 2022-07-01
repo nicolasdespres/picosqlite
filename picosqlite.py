@@ -50,6 +50,7 @@ from collections import defaultdict
 from pathlib import Path
 import warnings
 import shlex
+import logging
 
 
 def ensure_file_ext(filename, exts):
@@ -861,7 +862,7 @@ class NamedTableView(TableView):
 
     def insert(self, rows, column_ids, column_names, offset, limit):
         ys_begin, ys_end = self.ys.get()
-        # print(f"DBG: insert into {self.fetcher.table_name} {len(rows)} (asked {limit}) at {offset}; current=[{self.begin_offset}, {self.end_offset}]; visible=[{ys_begin}, {ys_end}]")  # noqa: E501
+        logging.debug(f"insert into {self.fetcher.table_name} {len(rows)} (asked {limit}) at {offset}; current=[{self.begin_offset}, {self.end_offset}]; visible=[{ys_begin}, {ys_end}]")  # noqa: E501
         format_row = RowFormatter(column_ids, column_names)
         if self.begin_offset == 0 and self.end_offset == 0:
             assert self.nb_view_items == 0
@@ -911,24 +912,24 @@ class NamedTableView(TableView):
         self.fetching = False
 
     def lazy_load(self, begin_index, end_index):
-        # print(f"DBG: lazy_load({begin_index}, {end_index})")
+        logging.debug(f"lazy_load({begin_index}, {end_index})")
         limit = self.limit - self.nb_view_items
         if limit < self.inc_limit:
             limit = self.inc_limit
         if self.begin_offset > 0 and float(begin_index) <= 0.2:
-            # print("DBG: fetch down")
+            logging.debug("fetch down")
             offset = self.begin_offset - limit
             if offset < 0:
                 offset = 0
             limit = self.begin_offset - offset
             self.fetch(offset, limit)
         if float(end_index) >= 0.8:
-            # print("DBG: fetch up")
+            logging.debug("fetch up")
             self.fetch(self.end_offset, limit)
         return self.ys.set(begin_index, end_index)
 
     def on_tree_configure(self, event):
-        # print("DBG: on_tree_configure")
+        logging.debug("on_tree_configure")
         self.limit = round(event.height / self.linespace) * 4
         self._update_inc_limit()
 
@@ -940,7 +941,7 @@ class NamedTableView(TableView):
         if self.fetching:
             return
         self.fetching = True
-        # print(f"DBG: fetch {offset}, {limit}")
+        logging.debug(f"fetch {offset}, {limit}")
         self.fetcher(offset, limit)
 
     def save_state(self):
@@ -951,7 +952,7 @@ class NamedTableView(TableView):
     def restore_state(self, state):
         if state.is_empty:
             return
-        # print("DBG: restore_state", repr(state))
+        logging.debug("restore_state %r", state)
         self.clear_all()
         self.previous_visible_item = state.visible_item
         self.limit = state.end_offset - state.begin_offset
@@ -1211,19 +1212,19 @@ class Application(tk.Frame):
     def destroy(self):
         super().destroy()
         if self.sql is not None:
-            print("Try to close...")
+            logging.info("Try to close...")
             if self.sql.close():
-                print("done")
+                logging.info("done closing.")
             else:
                 if self.sql.is_processing:
-                    print("Force interrupting...")
+                    logging.info("Force interrupting...")
                     self.sql.force_interrupt()
-                    print("Retry to close...")
+                    logging.info("Retry to close...")
                     if self.sql.close():
-                        print("done")
+                        logging.info("done closing.")
                     else:
-                        print("Failed to close... Too bad!")
-        print("Good bye")
+                        logging.error("Failed to close... Too bad!")
+        logging.info("Good bye")
 
     def get_initial_open_dir(self):
         if self.sql is None:
@@ -1906,15 +1907,15 @@ def iter_tables(db):
         yield row[0]
 
 
-def print_hierarchy(w, depth=0):
+def log_widget_hierarchy(w, depth=0):
     """Print widget ownership hierarchy."""
-    print('  '*depth + w.winfo_class()
-          + ' w=' + str(w.winfo_width())
-          + ' h=' + str(w.winfo_height())
-          + ' x=' + str(w.winfo_x())
-          + ' y=' + str(w.winfo_y()))
+    logging.info('  '*depth + w.winfo_class()
+                 + ' w=' + str(w.winfo_width())
+                 + ' h=' + str(w.winfo_height())
+                 + ' x=' + str(w.winfo_x())
+                 + ' y=' + str(w.winfo_y()))
     for i in w.winfo_children():
-        print_hierarchy(i, depth+1)
+        log_widget_hierarchy(i, depth+1)
 
 
 def start_gui(db_path, query_or_script=None):
@@ -1931,10 +1932,57 @@ def start_gui(db_path, query_or_script=None):
     return 0
 
 
+def rev_dict(d):
+    return {v: k for k, v in d.items()}
+
+
+LOG_LEVEL2STR = {
+    logging.DEBUG: "debug",
+    logging.INFO: "info",
+    logging.WARNING: "warning",
+    logging.ERROR: "error",
+    logging.CRITICAL: "critical",
+}
+LOG_STR2LEVEL = rev_dict(LOG_LEVEL2STR)
+
+
+def init_logger(filename=None, level=None):
+    logger_options = {}
+    if filename is not None:
+        logger_options['filename'] = filename
+        logger_options['filemode'] = 'a'
+        logger_options['encoding'] ='utf-8'
+    else:
+        logger_options['stream'] = sys.stdout
+    logging.basicConfig(format='%(asctime)s: %(levelname)s: %(message)s',
+                        level=level,
+                        **logger_options)
+    logging.info('Starting')
+
+
 def build_cli():
+
+    def log_level(text):
+        try:
+            return LOG_STR2LEVEL[text]
+        except KeyError:
+            raise argparse.ArgumentTypeError(
+                "invalid log level '{}' (pick one in {})"
+                .format(text, ", ".join(LOG_STR2LEVEL.keys())))
+
     parser = argparse.ArgumentParser(
         description=__doc__,
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument(
+        "-l", "--logfile",
+        action="store",
+        help="Path to the log file.")
+    parser.add_argument(
+        "-v", "--verbose",
+        type=log_level,
+        default=LOG_LEVEL2STR[logging.INFO],
+        action="store",
+        help="Log verbose level.")
     parser.add_argument(
         "db_file",
         action="store",
@@ -1951,6 +1999,7 @@ def build_cli():
 def main(argv):
     cli = build_cli()
     options = cli.parse_args(argv[1:])
+    init_logger(filename=options.logfile, level=options.verbose)
     return start_gui(options.db_file,
                      query_or_script=options.query_or_script)
 
