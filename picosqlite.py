@@ -871,7 +871,7 @@ class NamedTableView(TableView):
 
     def insert(self, rows, column_ids, column_names, offset, limit):
         ys_begin, ys_end = self.ys.get()
-        logging.debug(f"insert into {self.fetcher.table_name} {len(rows)} (asked {limit}) at {offset}; current=[{self.begin_offset}, {self.end_offset}]; visible=[{ys_begin}, {ys_end}]")  # noqa: E501
+        LOGGER.debug(f"insert into {self.fetcher.table_name} {len(rows)} (asked {limit}) at {offset}; current=[{self.begin_offset}, {self.end_offset}]; visible=[{ys_begin}, {ys_end}]")  # noqa: E501
         format_row = RowFormatter(column_ids, column_names)
         if self.begin_offset == 0 and self.end_offset == 0:
             assert self.nb_view_items == 0
@@ -921,24 +921,24 @@ class NamedTableView(TableView):
         self.fetching = False
 
     def lazy_load(self, begin_index, end_index):
-        logging.debug(f"lazy_load({begin_index}, {end_index})")
+        LOGGER.debug(f"lazy_load({begin_index}, {end_index})")
         limit = self.limit - self.nb_view_items
         if limit < self.inc_limit:
             limit = self.inc_limit
         if self.begin_offset > 0 and float(begin_index) <= 0.2:
-            logging.debug("fetch down")
+            LOGGER.debug("fetch down")
             offset = self.begin_offset - limit
             if offset < 0:
                 offset = 0
             limit = self.begin_offset - offset
             self.fetch(offset, limit)
         if float(end_index) >= 0.8:
-            logging.debug("fetch up")
+            LOGGER.debug("fetch up")
             self.fetch(self.end_offset, limit)
         return self.ys.set(begin_index, end_index)
 
     def on_tree_configure(self, event):
-        logging.debug("on_tree_configure")
+        LOGGER.debug("on_tree_configure")
         self.limit = round(event.height / self.linespace) * 4
         self._update_inc_limit()
 
@@ -950,7 +950,7 @@ class NamedTableView(TableView):
         if self.fetching:
             return
         self.fetching = True
-        logging.debug(f"fetch {offset}, {limit}")
+        LOGGER.debug(f"fetch {offset}, {limit}")
         self.fetcher(offset, limit)
 
     def save_state(self):
@@ -961,7 +961,7 @@ class NamedTableView(TableView):
     def restore_state(self, state):
         if state.is_empty:
             return
-        logging.debug("restore_state %r", state)
+        LOGGER.debug("restore_state %r", state)
         self.clear_all()
         self.previous_visible_item = state.visible_item
         self.limit = state.end_offset - state.begin_offset
@@ -1220,19 +1220,19 @@ class Application(tk.Frame):
     def destroy(self):
         super().destroy()
         if self.sql is not None:
-            logging.info("Try to close...")
+            LOGGER.info("Try to close...")
             if self.sql.close():
-                logging.info("done closing.")
+                LOGGER.info("done closing.")
             else:
                 if self.sql.is_processing:
-                    logging.info("Force interrupting...")
+                    LOGGER.info("Force interrupting...")
                     self.sql.force_interrupt()
-                    logging.info("Retry to close...")
+                    LOGGER.info("Retry to close...")
                     if self.sql.close():
-                        logging.info("done closing.")
+                        LOGGER.info("done closing.")
                     else:
-                        logging.error("Failed to close... Too bad!")
-        logging.info("Good bye")
+                        LOGGER.error("Failed to close... Too bad!")
+        LOGGER.info("Good bye")
 
     def get_initial_open_dir(self):
         if self.sql is None:
@@ -1917,11 +1917,11 @@ def iter_tables(db):
 
 def log_widget_hierarchy(w, depth=0):
     """Print widget ownership hierarchy."""
-    logging.info('  '*depth + w.winfo_class()
-                 + ' w=' + str(w.winfo_width())
-                 + ' h=' + str(w.winfo_height())
-                 + ' x=' + str(w.winfo_x())
-                 + ' y=' + str(w.winfo_y()))
+    LOGGER.info('  '*depth + w.winfo_class()
+                + ' w=' + str(w.winfo_width())
+                + ' h=' + str(w.winfo_height())
+                + ' x=' + str(w.winfo_x())
+                + ' y=' + str(w.winfo_y()))
     for i in w.winfo_children():
         log_widget_hierarchy(i, depth+1)
 
@@ -1949,7 +1949,7 @@ def _on_tk_exception(etype, value, tb):
 
 def report_exception(etype, value, tb,
                      title: str = "Internal error"):
-    logging.exception(title)
+    LOGGER.exception(title)
     error_lines = traceback.format_exception(etype, value, tb)
     LongTextDialog(title, "".join(error_lines))
 
@@ -2026,14 +2026,20 @@ LOG_LEVEL2STR = {
 LOG_STR2LEVEL = rev_dict(LOG_LEVEL2STR)
 
 
-def get_default_log_file():
+def get_data_folder():
     if running_on_windows():
-        logdir = Path(os.environ["LOCALAPPDATA"])/"PicoSQLite"/"Logs"
-        filename = strftime("%Y-%m-%d--%H-%M-%S") \
-            + " PicoSQLite-Log.txt"
-        return logdir/filename
+        return Path(os.environ["LOCALAPPDATA"])/"PicoSQLite"
+    elif running_on_mac_os():
+        return Path(os.environ["HOME"])/"Library"/"PicoSQLite"
     else:
-        return None
+        raise RuntimeError("no data folder for platform '{sys.platform}'")
+
+
+def get_log_filename():
+    data_folder = get_data_folder()
+    log_dir = data_folder/"Logs"
+    filename = strftime("%Y-%m-%d--%H-%M-%S") + " PicoSQLite-Log.txt"
+    return log_dir/filename
 
 
 def running_without_console():
@@ -2048,25 +2054,31 @@ def mkdir_p(path):
         pass
 
 
-LOGGER_INITIALIZED = False
-
-def init_logger(filename=None, level=None):
-    logger_options = {}
-    if filename is not None:
-        mkdir_p(os.path.dirname(filename))
-        logger_options['filename'] = os.fspath(filename)
-        logger_options['filemode'] = 'w'
-        # Not supported in version bellow
-        if sys.version_info >= (3, 9):
-            logger_options['encoding'] = 'utf8'
+def init_logger(level=logging.INFO):
+    if sys.stdout is None:
+        console_handler = logging.NullHandler()
     else:
-        logger_options['stream'] = sys.stdout
-    logging.basicConfig(format='%(asctime)s: %(levelname)s: %(message)s',
-                        level=level,
-                        **logger_options)
-    logging.info('Starting')
-    global LOGGER_INITIALIZED
-    LOGGER_INITIALIZED = True
+        console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setFormatter(logging.Formatter(
+        "%(name)s: %(levelname)s: %(message)s"))
+    console_handler.setLevel(level)
+
+    log_filename = get_log_filename()
+    mkdir_p(os.path.dirname(log_filename))
+    file_handler = logging.FileHandler(log_filename,
+                                       mode="w", encoding="utf-8")
+
+    file_handler.setFormatter(logging.Formatter(
+        "%(asctime)s: %(levelname)s: %(message)s"))
+    file_handler.setLevel(logging.DEBUG)
+
+    logger = logging.getLogger("picosqlite")
+    logger.setLevel(-1)  # pass all messages to handlers
+    logger.addHandler(console_handler)
+    logger.addHandler(file_handler)
+    logger.info("Starting")
+
+    return logger
 
 
 def respawn_without_console():
@@ -2078,8 +2090,8 @@ def respawn_without_console():
     argv = sys.argv.copy()
     argv.insert(0, os.fspath(win_exec))
     argv.append('--no-respawn')
-    logging.info("cwd: %s", os.getcwd())
-    logging.info("respawning: %r", argv)
+    LOGGER.info("cwd: %s", os.getcwd())
+    LOGGER.info("respawning: %r", argv)
     os.execv(win_exec, argv)
 
 
@@ -2100,10 +2112,6 @@ def build_cli():
         "--no-respawn",
         action="store_true",
         help="Do not try to respawn without console on Windows.")
-    parser.add_argument(
-        "-l", "--logfile",
-        action="store",
-        help="Path to the log file.")
     parser.add_argument(
         "-v", "--verbose",
         type=log_level,
@@ -2126,30 +2134,24 @@ def build_cli():
 def main(argv):
     cli = build_cli()
     options = cli.parse_args(argv[1:])
-
-    # Force to use a log file is running without a console.
-    logfile = options.logfile
-    if logfile is None and running_without_console():
-        logfile = get_default_log_file()
-    init_logger(filename=logfile, level=options.verbose)
-
+    global LOGGER
+    LOGGER = init_logger(level=options.verbose)
     # Respawn without console
     if not options.no_respawn and not running_without_console():
         respawn_without_console()
-
     return start_gui(options.db_file,
                      query_or_script=options.query_or_script)
 
 
 def protected_main(argv):
-    global LOGGER_INITIALIZED
-    LOGGER_INITIALIZED = False
+    global LOGGER
+    LOGGER = None
     status = 0
     try:
         status = main(argv)
     except Exception:
-        if LOGGER_INITIALIZED:
-            logging.exception("Internal error")
+        if LOGGER is not None:
+            LOGGER.exception("Internal error")
         sys.stdout.flush()
         sys.stderr.flush()
         print("=" * 50, flush=True)
