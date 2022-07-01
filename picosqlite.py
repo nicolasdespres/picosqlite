@@ -1032,7 +1032,6 @@ class Application(tk.Frame):
             else:
                 self.run_query(query_or_script)
 
-
     def init_widget(self):
         self.init_statusbar()
         self.pane = ttk.Panedwindow(self, orient=tk.VERTICAL)
@@ -1980,7 +1979,7 @@ def init_logger(filename=None, level=None):
         logger_options['filename'] = os.fspath(filename)
         logger_options['filemode'] = 'w'
         # Not supported in version bellow
-        if sys.version_info >= (3,9):
+        if sys.version_info >= (3, 9):
             logger_options['encoding'] = 'utf8'
     else:
         logger_options['stream'] = sys.stdout
