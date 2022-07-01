@@ -565,6 +565,9 @@ class SchemaFrame(tk.Frame):
 
 class ColorSyntax:
 
+    # SQL_STRING = r"'(?:\\'|[^'])*'"  # version with backslash escape
+    SQL_STRING = r"'(?:''|[^'])*'"
+
     SQL_KEYWORDS = (
         "ADD", "ALL", "ALTER", "AND", "ANY", "AS", "ASC", "BACKUP",
         "BETWEEN", "BY", "CASE", "CHECK", "COLUMN", "CONSTRAINT",
@@ -611,6 +614,7 @@ class ColorSyntax:
             | (?P<directive>  \b(?i:%(directives)s)\b)
             | (?P<datatypes>  \b(?i:%(datatypes)s)\b)
             | (?P<internal>   ^\s*\.(?i:%(internals)s)\b)
+            | (?P<string>     (%(string)s))
             """ % {
                 "keywords": mk_regex_any_word(self.SQL_KEYWORDS),
                 "tables": mk_regex_any_word(self.tables),
@@ -618,6 +622,7 @@ class ColorSyntax:
                 "directives": mk_regex_any_word(self.SQL_DIRECTIVES),
                 "datatypes": mk_regex_any_word(self.SQL_DATATYPES),
                 "internals": mk_regex_any_word(self.INTERNALS),
+                "string": self.SQL_STRING,
             },
             re.MULTILINE | re.VERBOSE)
 
@@ -629,6 +634,7 @@ class ColorSyntax:
         text.tag_configure("directive", foreground="blue", underline=True)
         text.tag_configure("datatypes", foreground="green", underline=True)
         text.tag_configure("internal", foreground="purple")
+        text.tag_configure("string", foreground="red")
 
     def highlight(self, text, start, end):
         content = text.get(start, end)
@@ -639,6 +645,7 @@ class ColorSyntax:
         text.tag_remove("directive", start, end)
         text.tag_remove("datatypes", start, end)
         text.tag_remove("internal", start, end)
+        text.tag_remove("string", start, end)
         for match in self._sql_re.finditer(content):
             for group_name in match.groupdict():
                 match_start, match_end = match.span(group_name)
