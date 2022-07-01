@@ -49,7 +49,6 @@ import functools
 import traceback
 from collections import defaultdict
 from pathlib import Path
-import warnings
 import shlex
 import logging
 import subprocess as sp
@@ -470,7 +469,7 @@ def sqlite_type_to_py(vtype):
     elif 'BLOB' in vtype:
         return bytes
     else:
-        warnings.warn(
+        LOGGER.warning(
             f"unsupported sqlite type '{vtype}'; falling back to int")
         return int
 
