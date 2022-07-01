@@ -1972,6 +1972,8 @@ def mkdir_p(path):
         pass
 
 
+LOGGER_INITIALIZED = False
+
 def init_logger(filename=None, level=None):
     logger_options = {}
     if filename is not None:
@@ -1987,6 +1989,8 @@ def init_logger(filename=None, level=None):
                         level=level,
                         **logger_options)
     logging.info('Starting')
+    global LOGGER_INITIALIZED
+    LOGGER_INITIALIZED = True
 
 
 def respawn_without_console():
@@ -2062,10 +2066,14 @@ def main(argv):
 
 
 def protected_main(argv):
+    global LOGGER_INITIALIZED
+    LOGGER_INITIALIZED = False
     status = 0
     try:
         status = main(argv)
     except Exception:
+        if LOGGER_INITIALIZED:
+            logging.exception("Internal error")
         sys.stdout.flush()
         sys.stderr.flush()
         print("=" * 50, flush=True)
