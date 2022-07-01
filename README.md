@@ -19,7 +19,7 @@ schema viewer.
 
 # Installation
 
-Just copy the Python script and run it.
+Just copy (or symlink) the Python script and run it.
 
 # License
 
