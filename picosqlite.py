@@ -468,6 +468,8 @@ def sqlite_type_to_py(vtype):
         return str
     elif 'BLOB' in vtype:
         return bytes
+    elif 'NONE' in vtype:
+        return None
     else:
         LOGGER.warning(
             f"unsupported sqlite type '{vtype}'; falling back to int")
