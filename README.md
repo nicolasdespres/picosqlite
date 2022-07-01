@@ -20,3 +20,10 @@ schema viewer.
 # Installation
 
 Just copy the Python script and run it.
+
+# License
+
+*Pico SQLite* is released under the term of the
+`Simplified BSD License <http://choosealicense.com/licenses/bsd-2-clause>`_.
+Copyright (c) 2021-today, Nicolas Desprès
+All rights reserved.
