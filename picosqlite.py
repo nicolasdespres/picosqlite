@@ -1594,7 +1594,7 @@ class Application(tk.Frame):
         if not values:
             return
         value = values[selected_item]
-        self.show_value(unmangle_value(value))
+        self.show_value(value)
         self.update_bt['state'] = tk.NORMAL
 
     def show_value(self, value):
@@ -1944,18 +1944,7 @@ def format_row_values(row):
 
 
 def format_row_value(v):
-    if isinstance(v, str):
-        return mangle_value(v)
-    else:
-        return v
-
-
-def mangle_value(v):
-    return repr(v)[1:-1]
-
-
-def unmangle_value(v):
-    return eval(f'"""{v}"""')
+    return '' if v is None else v
 
 
 def iter_tables(db):
