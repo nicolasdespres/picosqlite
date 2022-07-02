@@ -479,9 +479,11 @@ def sqlite_type_to_py(vtype):
     elif 'NONE' in vtype:
         return None
     else:
+        # May happen for column created without providing a type
+        # in 'create table'.
         LOGGER.warning(
-            f"unsupported sqlite type '{vtype}'; falling back to int")
-        return int
+            f"unsupported sqlite type '{vtype}'; falling back to None")
+        return None
 
 
 def escape_sqlite_str(text):
