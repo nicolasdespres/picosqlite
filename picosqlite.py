@@ -834,6 +834,12 @@ class TableView(tk.Frame):
         self.tree.bind("<<TreeviewSelect>>", on_treeview_selected)
 
 
+def get_treeview_row_height():
+    """Get the approximate height of a TreeView's row."""
+    font = nametofont(ttk.Style().lookup("Treeview", "font"))
+    return font.metrics("linespace")
+
+
 class NamedTableView(TableView):
 
     # We load BUFFER_SIZE_FACTOR more items than we actually show.
@@ -856,8 +862,7 @@ class NamedTableView(TableView):
         self.tree['selectmode'] = 'extended'
         self.tree['yscrollcommand'] = self.lazy_load
         self.tree.bind("<Configure>", self.on_tree_configure)
-        font = nametofont(ttk.Style().lookup("Treeview", "font"))
-        self.linespace = font.metrics("linespace")
+        self.row_height = get_treeview_row_height()
         self.begin_offset = 0
         self.end_offset = 0  # excluded
         self.fetching = False
@@ -953,7 +958,7 @@ class NamedTableView(TableView):
     def on_tree_configure(self, event):
         LOGGER.debug("on_tree_configure")
         self.limit = \
-            round(event.height / self.linespace) * self.BUFFER_SIZE_FACTOR
+            round(event.height / self.row_height) * self.BUFFER_SIZE_FACTOR
         self._update_inc_limit()
 
     def _update_inc_limit(self):
