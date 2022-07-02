@@ -54,6 +54,13 @@ import logging
 import subprocess as sp
 
 
+LOGGER = logging.getLogger("picosqlite")
+# Prevent logger to log anything until it is configured by init_logger.
+# It may happens in the uncaught exception handler, if an exception is raised
+# before the logger is completely initialized.
+LOGGER.addHandler(logging.NullHandler())
+
+
 def ensure_file_ext(filename, exts):
     path = Path(filename)
     if path.suffix in exts:
@@ -2113,14 +2120,14 @@ def mkdir_p(path):
         pass
 
 
-def init_logger(level=logging.INFO):
+def init_logger(logger, level=logging.INFO):
     if sys.stdout is None:
-        console_handler = logging.NullHandler()
+        console_handler = None
     else:
         console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setFormatter(logging.Formatter(
-        "%(name)s: %(levelname)s: %(message)s"))
-    console_handler.setLevel(level)
+        console_handler.setFormatter(logging.Formatter(
+            "%(name)s: %(levelname)s: %(message)s"))
+        console_handler.setLevel(level)
 
     log_filename = get_log_filename()
     mkdir_p(os.path.dirname(log_filename))
@@ -2131,13 +2138,11 @@ def init_logger(level=logging.INFO):
         "%(asctime)s: %(levelname)s: %(message)s"))
     file_handler.setLevel(logging.DEBUG)
 
-    logger = logging.getLogger("picosqlite")
     logger.setLevel(-1)  # pass all messages to handlers
-    logger.addHandler(console_handler)
+    if console_handler is not None:
+        logger.addHandler(console_handler)
     logger.addHandler(file_handler)
     logger.info("Starting")
-
-    return logger
 
 
 def respawn_without_console():
@@ -2193,8 +2198,7 @@ def build_cli():
 def main(argv):
     cli = build_cli()
     options = cli.parse_args(argv[1:])
-    global LOGGER
-    LOGGER = init_logger(level=options.verbose)
+    init_logger(LOGGER, level=options.verbose)
     # Respawn without console
     if not options.no_respawn and not running_without_console():
         respawn_without_console()
@@ -2203,14 +2207,11 @@ def main(argv):
 
 
 def protected_main(argv):
-    global LOGGER
-    LOGGER = None
     status = 0
     try:
         status = main(argv)
     except Exception:
-        if LOGGER is not None:
-            LOGGER.exception("Internal error")
+        LOGGER.exception("Internal error")
         sys.stdout.flush()
         sys.stderr.flush()
         print("=" * 50, flush=True)
