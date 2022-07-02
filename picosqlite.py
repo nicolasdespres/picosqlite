@@ -836,6 +836,9 @@ class TableView(tk.Frame):
 
 class NamedTableView(TableView):
 
+    # We load BUFFER_SIZE_FACTOR more items than we actually show.
+    BUFFER_SIZE_FACTOR = 4
+
     @dataclass
     class State:
         begin_offset: int
@@ -949,11 +952,12 @@ class NamedTableView(TableView):
 
     def on_tree_configure(self, event):
         LOGGER.debug("on_tree_configure")
-        self.limit = round(event.height / self.linespace) * 4
+        self.limit = \
+            round(event.height / self.linespace) * self.BUFFER_SIZE_FACTOR
         self._update_inc_limit()
 
     def _update_inc_limit(self):
-        self.inc_limit = self.limit // 4
+        self.inc_limit = self.limit // self.BUFFER_SIZE_FACTOR
 
     def fetch(self, offset, limit):
         # Prevent interleaved fetch requests.
