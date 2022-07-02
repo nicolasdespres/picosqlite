@@ -1017,8 +1017,8 @@ class Fetcher:
 
     def __call__(self, offset, limit):
         self.app.statusbar.show(
-            f"Loading {limit} records from {offset} "
-            f"in table '{self.table_name}'...", delay=0.5)
+            f"Loading {limit} records from table '{self.table_name}' "
+            f"starting at offset {offset}...", delay=0.5)
         self.app.sql.put_request(
             Request.ViewTable(table_name=self.table_name,
                               offset=offset,
