@@ -1610,14 +1610,19 @@ class Application(tk.Frame):
         self.update_value(self.detailed_view._current_tree,
                           self.detailed_view._current_item_id)
 
-    def update_value(self, tree, item_id):
-        table_name = tree._table_name
-        field = self.schema.get_field_by_id(table_name, tree._selected_column)
+    def get_primary_key(self, table_name):
         pk = self.schema.get_table_primary_key(table_name)
         if pk is None:
             showerror(parent=self,
                       title="Schema error",
                       message=f"No primary key for table {table_name}")
+        return pk
+
+    def update_value(self, tree, item_id):
+        table_name = tree._table_name
+        field = self.schema.get_field_by_id(table_name, tree._selected_column)
+        pk = self.get_primary_key(table_name)
+        if pk is None:
             return False
         values = tree.item(item_id, option="values")
         pk_value = values[pk.cid]
@@ -1786,12 +1791,8 @@ class Application(tk.Frame):
         if not isinstance(table_view, NamedTableView):
             return False
         selection = table_view.tree.selection()
-        pk = self.schema.get_table_primary_key(table_view.table_name)
+        pk = self.get_primary_key(table_view.table_name)
         if pk is None:
-            showerror(parent=self,
-                      title="Schema error",
-                      message="No primary key "
-                      f"for table {table_view.table_name}")
             return False
         ans = askquestion(
             parent=self,
