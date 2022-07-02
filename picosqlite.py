@@ -863,10 +863,14 @@ class NamedTableView(TableView):
         self.tree['yscrollcommand'] = self.lazy_load
         self.tree.bind("<Configure>", self.on_tree_configure)
         self.row_height = get_treeview_row_height()
+        # The offset of the first and last (excluded) rows currently
+        # loaded into the tree view.
         self.begin_offset = 0
         self.end_offset = 0  # excluded
         self.fetching = False
         self.previous_visible_item = None
+        # How many items are currently loaded.
+        self.limit = None
 
     @property
     def table_name(self):
