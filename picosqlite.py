@@ -889,9 +889,13 @@ class NamedTableView(TableView):
     def nb_view_items(self):
         return self.end_offset - self.begin_offset
 
+    def row_from_fraction(self, fraction: float):
+        """Compute the row from its fraction in the loaded window."""
+        return int(self.nb_view_items * fraction) + self.begin_offset
+
     def get_visible_item(self):
         ys_begin, ys_end = self.ys.get()
-        return int(self.nb_view_items * ys_begin) + self.begin_offset
+        return self.row_from_fraction(ys_begin)
 
     def insert(self, rows, column_ids, column_names, offset, limit):
         ys_begin, ys_end = self.ys.get()
@@ -945,9 +949,7 @@ class NamedTableView(TableView):
         if self.nb_view_items > 0:
             if not self.tree.exists(visible_item):
                 # Scrollbar lower bound may lag during fast scrolling.
-                visible_item = \
-                    int(self.nb_view_items * 3/8) \
-                    + self.begin_offset
+                visible_item = self.row_from_fraction(3/8)
             self.tree.see(visible_item)
         self.fetching = False
 
