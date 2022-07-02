@@ -1631,8 +1631,8 @@ class Application(tk.Frame):
             parent=self,
             title="Update confirmation",
             message="Are you sure you want to change the value of "
-            f"field '{field.name}' of row with {pk.name} = {pk_value} "
-            f"in table '{table_name}'?")
+            f"field '{field.name}' of row with primary key "
+            f"{pk.name} = {pk_value} in table '{table_name}'?")
         if ans == 'no':
             return False
         query = "UPDATE {} SET {} = {} WHERE {} = {};"\
