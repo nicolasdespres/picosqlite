@@ -874,8 +874,14 @@ class NamedTableView(TableView):
 
     def insert(self, rows, column_ids, column_names, offset, limit):
         ys_begin, ys_end = self.ys.get()
-        LOGGER.debug(f"insert into {self.fetcher.table_name} {len(rows)} (asked {limit}) at {offset}; current=[{self.begin_offset}, {self.end_offset}]; visible=[{ys_begin}, {ys_end}]")  # noqa: E501
+        LOGGER.debug(
+            "inserting %d row(s) into %s at %d (asked %d); "
+            "current=[%d, %d]; visible=[%d, %d]",
+            len(rows), self.table_name, offset, limit,
+            self.begin_offset, self.end_offset,
+            ys_begin, ys_end)
         format_row = RowFormatter(column_ids, column_names)
+        # If we currently have no item loaded at all.
         if self.begin_offset == 0 and self.end_offset == 0:
             assert self.nb_view_items == 0
             self.begin_offset = offset
@@ -912,6 +918,7 @@ class NamedTableView(TableView):
                 f"wrong fetched window ! "
                 f"current=[{self.begin_offset}, {self.end_offset}]; "
                 f"fetched=[{offset}, {offset+limit}]")
+        # Adjust TreeView's column width to the newly inserted rows.
         format_row.configure_columns(self.tree)
         # Prevent auto-scroll down after inserting items.
         if self.nb_view_items > 0:
