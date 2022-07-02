@@ -1205,11 +1205,21 @@ class Application(tk.Frame):
 
     def exit_action(self):
         if self.sql is not None:
-            ans = askquestion(
-                parent=self,
-                title="Confirmation",
-                message="Do you really want to quit?")
-            if ans == 'no':
+            if self.sql.in_transaction:
+                is_yes = askyesno(
+                    parent=self,
+                    title="SQL",
+                    icon="warning",
+                    message=""
+                    "You are in the middle of a transaction.\n\n"
+                    "Do you really want to quit and "
+                    "lose the uncommitted data ?")
+            else:
+                is_yes = askyesno(
+                    parent=self,
+                    title="Quit confirmation",
+                    message="Do you really want to quit?")
+            if not is_yes:
                 return
         if self.safely_close_db():
             sys.exit()
