@@ -1615,7 +1615,7 @@ class Application(tk.Frame):
         if pk is None:
             showerror(parent=self,
                       title="Schema error",
-                      message=f"No primary key for table {table_name}")
+                      message=f"No primary key for table {table_name}.")
         return pk
 
     def update_value(self, tree, item_id):
