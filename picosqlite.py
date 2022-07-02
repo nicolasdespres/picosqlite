@@ -1915,10 +1915,7 @@ class RowFormatter:
 
     def anchor(self, column_index):
         t = self.types[column_index]
-        if issubclass(t, int):
-            return "e"
-        else:
-            return "w"
+        return "e" if issubclass(t, int) else "w"
 
     def configure_columns(self, tree):
         if not self.has_formatted:
