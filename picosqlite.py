@@ -2008,7 +2008,7 @@ def _on_tk_exception(etype, value, tb):
 
 
 def report_exception(etype, value, tb,
-                     title: str = "Internal error"):
+                     title: str = "Pico SQLite's internal error"):
     LOGGER.exception(title)
     error_lines = traceback.format_exception(etype, value, tb)
     LongTextDialog(title, "".join(error_lines))
