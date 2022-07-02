@@ -1445,6 +1445,7 @@ class Application(tk.Frame):
         self.statusbar.show(StatusMessage.READY)
 
     def on_sql_TableRows(self, result: TableRows):
+        """Handle rows fetched from table."""
         table_view = self.table_views[result.request.table_name]
         self.log_error_and_warning(result)
         last_mtime = self.sql.last_modification_time
