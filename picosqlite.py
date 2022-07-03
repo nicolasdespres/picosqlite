@@ -686,14 +686,16 @@ class ColorSyntax:
             re.MULTILINE | re.VERBOSE)
 
     def configure(self, text):
-        text.tag_configure("keyword", foreground="blue")
-        text.tag_configure("comment", foreground="yellow")
-        text.tag_configure("table", foreground="orange")
-        text.tag_configure("field", foreground="green")
-        text.tag_configure("directive", foreground="blue", underline=True)
-        text.tag_configure("datatypes", foreground="green", underline=True)
-        text.tag_configure("internal", foreground="purple")
-        text.tag_configure("string", foreground="red")
+        keyword_fg = "#7F0055"
+        field_fg = "green"
+        text.tag_configure("keyword", foreground=keyword_fg)
+        text.tag_configure("comment", foreground="#555555")
+        text.tag_configure("table", foreground="#B04600")
+        text.tag_configure("field", foreground=field_fg)
+        text.tag_configure("directive", foreground=keyword_fg, underline=True)
+        text.tag_configure("datatypes", foreground=field_fg, underline=True)
+        text.tag_configure("internal", foreground="#E311E3")
+        text.tag_configure("string", foreground="#8DC76F")
 
     def highlight(self, text, start, end):
         content = text.get(start, end)
@@ -726,7 +728,8 @@ class Console(ttk.Panedwindow):
 
         # **Query**
         self.query_frame = tk.Frame()
-        self.query_text = ScrolledText(self.query_frame, wrap="word")
+        self.query_text = ScrolledText(self.query_frame, wrap="word",
+                                       background="white", foreground="black")
         self.query_text.bind("<<Modified>>", self.on_modified_query)
         self.run_query_bt = tk.Button(self.query_frame, text="Run",
                                       command=run_query_command)
@@ -739,13 +742,13 @@ class Console(ttk.Panedwindow):
 
         # **Command log**
         self.cmdlog_text = ScrolledText(wrap="word", background="lightgray",
-                                        height=100)
+                                        foreground="black", height=100)
         self.cmdlog_text.MAXLINES = command_log_maxline
         self.cmdlog_text.configure(state=tk.DISABLED)
         self.cmdlog_text.rowconfigure(0, weight=1)
         self.cmdlog_text.columnconfigure(0, weight=1)
-        self.cmdlog_text.tag_configure("error", foreground="red")
-        self.cmdlog_text.tag_configure("warning", foreground="orange")
+        self.cmdlog_text.tag_configure("error", foreground="#CC0000")
+        self.cmdlog_text.tag_configure("warning", foreground="#f57010")
 
         # **Register**
         self.add(self.cmdlog_text, weight=4)
