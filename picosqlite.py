@@ -856,13 +856,13 @@ class NamedTableView(TableView):
 
     @dataclass
     class State:
-        begin_offset: int
-        end_offset: int
+        begin_window: int
+        end_window: int
         visible_item: int
 
         @property
         def is_empty(self):
-            return self.begin_offset == 0 and self.end_offset == 0
+            return self.begin_window == 0 and self.end_window == 0
 
     def __init__(self, fetcher=None, **kwargs):
         super().__init__(**kwargs)
@@ -874,8 +874,8 @@ class NamedTableView(TableView):
         self.row_height = get_treeview_row_height()
         # The offset of the first and last (excluded) rows currently
         # loaded into the tree view.
-        self.begin_offset = 0
-        self.end_offset = 0  # excluded
+        self.begin_window = 0
+        self.end_window = 0  # excluded
         self.previous_visible_item = None
         # The limit that cannot be exceeded by the window size.
         self.limit = None
@@ -887,11 +887,11 @@ class NamedTableView(TableView):
     @property
     def nb_view_items(self):
         """The number of items currently loaded in the view."""
-        return self.end_offset - self.begin_offset
+        return self.end_window - self.begin_window
 
     def row_from_fraction(self, fraction: float):
         """Compute the row from its fraction in the loaded window."""
-        return int(self.nb_view_items * fraction) + self.begin_offset
+        return int(self.nb_view_items * fraction) + self.begin_window
 
     def get_visible_item(self):
         ys_begin, ys_end = self.ys.get()
@@ -912,16 +912,16 @@ class NamedTableView(TableView):
             "inserting %d row(s) (asked %d) into %s from %d to %d; "
             "current=[%d, %d]; visible=[%d, %d]",
             len(rows), limit, self.table_name, first_row, last_row,
-            self.begin_offset, self.end_offset,
+            self.begin_window, self.end_window,
             ys_begin, ys_end)
         format_row = RowFormatter(column_ids, column_names)
         # If we currently have no item loaded at all.
-        if self.begin_offset == 0 and self.end_offset == 0:
+        if self.begin_window == 0 and self.end_window == 0:
             assert self.nb_view_items == 0
-            self.begin_offset = first_row
-            self.end_offset = first_row
+            self.begin_window = first_row
+            self.end_window = first_row
         # Nothing to do, if the fetched area is within the current window.
-        if self.begin_offset <= first_row and last_row <= self.end_offset:
+        if self.begin_window <= first_row and last_row <= self.end_window:
             LOGGER.debug("fetched rows are within current window")
             return
         # TODO: Better explain what this code is meant to!
@@ -933,39 +933,39 @@ class NamedTableView(TableView):
         else:
             visible_item = self.get_visible_item()
         # Append part of the range beyond the current window.
-        if self.begin_offset <= first_row <= self.end_offset:
+        if self.begin_window <= first_row <= self.end_window:
             # Insert new items at the end
-            excess = last_row - self.end_offset
+            excess = last_row - self.end_window
             LOGGER.debug("append %d items", excess)
             for row in rows[-excess:]:
                 self.tree.insert('', 'end',
-                                 iid=self.end_offset,
+                                 iid=self.end_window,
                                  values=format_row(row))
-                self.end_offset += 1
+                self.end_window += 1
             # Delete exceeded items from the beginning.
             while self.nb_view_items > self.limit:
-                self.tree.delete(self.begin_offset)
-                self.begin_offset += 1
+                self.tree.delete(self.begin_window)
+                self.begin_window += 1
         # Insert at the beginning part of the range before the current window.
-        elif self.begin_offset <= last_row <= self.end_offset:
+        elif self.begin_window <= last_row <= self.end_window:
             # Insert new items from the beginning
-            excess = self.begin_offset - first_row
+            excess = self.begin_window - first_row
             LOGGER.debug("insert %d items at the beginning", excess)
             for row in reversed(rows[:excess]):
-                self.begin_offset -= 1
+                self.begin_window -= 1
                 self.tree.insert('', 0,
-                                 iid=self.begin_offset,
+                                 iid=self.begin_window,
                                  values=format_row(row))
             # Delete exceeded items at the end.
             while self.nb_view_items > self.limit:
-                self.end_offset -= 1
-                self.tree.delete(self.end_offset)
+                self.end_window -= 1
+                self.tree.delete(self.end_window)
         else:
             # May happens if range entirely overlaps the current window, or
             # range is non-contiguous with the current window.
             raise ValueError(
                 f"invalid fetched window ! "
-                f"current=[{self.begin_offset}, {self.end_offset}]; "
+                f"current=[{self.begin_window}, {self.end_window}]; "
                 f"fetched=[{first_row}, {last_row}]")
         # Adjust TreeView's column width to the newly inserted rows.
         format_row.configure_columns(self.tree)
@@ -981,16 +981,16 @@ class NamedTableView(TableView):
         limit = self.limit - self.nb_view_items
         if limit < self.inc_limit:
             limit = self.inc_limit
-        if self.begin_offset > 0 and float(begin_index) <= 0.2:
+        if self.begin_window > 0 and float(begin_index) <= 0.2:
             LOGGER.debug("fetch down")
-            offset = self.begin_offset - limit
+            offset = self.begin_window - limit
             if offset < 0:
                 offset = 0
-            limit = self.begin_offset - offset
+            limit = self.begin_window - offset
             self.fetch(offset, limit)
         if float(end_index) >= 0.8:
             LOGGER.debug("fetch up")
-            self.fetch(self.end_offset, limit)
+            self.fetch(self.end_window, limit)
         return self.ys.set(begin_index, end_index)
 
     def on_tree_configure(self, event):
@@ -1007,8 +1007,8 @@ class NamedTableView(TableView):
         self.fetcher(offset, limit)
 
     def save_state(self):
-        return self.State(begin_offset=self.begin_offset,
-                          end_offset=self.end_offset,
+        return self.State(begin_window=self.begin_window,
+                          end_window=self.end_window,
                           visible_item=self.get_visible_item())
 
     def restore_state(self, state):
@@ -1017,15 +1017,15 @@ class NamedTableView(TableView):
         LOGGER.debug("restore_state %r", state)
         self.clear_all()
         self.previous_visible_item = state.visible_item
-        self.limit = state.end_offset - state.begin_offset
+        self.limit = state.end_window - state.begin_window
         self._update_inc_limit()
-        self.fetch(state.begin_offset, self.limit)
+        self.fetch(state.begin_window, self.limit)
 
     def clear_all(self):
-        assert self.end_offset >= self.begin_offset
-        while self.end_offset > self.begin_offset:
-            self.end_offset -= 1
-            self.tree.delete(self.end_offset)
+        assert self.end_window >= self.begin_window
+        while self.end_window > self.begin_window:
+            self.end_window -= 1
+            self.tree.delete(self.end_window)
 
 
 class Fetcher:
