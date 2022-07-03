@@ -8,9 +8,6 @@ No dependency apart from python 3.7.
 
 # Documentation: https://tkdocs.com
 
-
-# TODO(Nicolas Despres): Schema diagram using dotty?
-
 # WARNING: use single-quote for this string (release script relies on it)!
 __version__ = 'git'
 
