@@ -938,8 +938,8 @@ class NamedTableView(TableView):
         assert len(rows) <= limit
         first_row = offset
         last_row = offset + len(rows)  # excluded
-        # If the table is empty or if the requested offset is over the last row,
-        # we may have fetched no row.
+        # If the table is empty or if the requested offset is over the last
+        # row, we may have fetched no row.
         if first_row == last_row:
             LOGGER.debug("no row fetched between %d and %d",
                          first_row, last_row)
@@ -969,7 +969,8 @@ class NamedTableView(TableView):
             self.previous_visible_item = None
         else:
             visible_item = self.get_visible_item()
-        # Append part of the range beyond the current window.
+        # Append part of the range beyond the current window, if the fetched
+        # rows start inside the current window and potentially extend beyond.
         if self.begin_window <= first_row <= self.end_window:
             # Insert new items at the end
             excess = last_row - self.end_window
@@ -983,7 +984,9 @@ class NamedTableView(TableView):
             while self.nb_view_items > self.max_window_size:
                 self.tree.delete(self.begin_window)
                 self.begin_window += 1
-        # Insert at the beginning part of the range before the current window.
+        # Insert at the beginning part of the range before the current window,
+        # if the fetched rows finished in the current window and potentially
+        # start before.
         elif self.begin_window <= last_row <= self.end_window:
             # Insert new items from the beginning
             excess = self.begin_window - first_row
