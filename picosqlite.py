@@ -878,7 +878,7 @@ class NamedTableView(TableView):
         self.end_window = 0  # excluded
         self.previous_visible_item = None
         # The limit that cannot be exceeded by the window size.
-        self.limit = None
+        self.max_window_size = None
 
     @property
     def table_name(self):
@@ -943,7 +943,7 @@ class NamedTableView(TableView):
                                  values=format_row(row))
                 self.end_window += 1
             # Delete exceeded items from the beginning.
-            while self.nb_view_items > self.limit:
+            while self.nb_view_items > self.max_window_size:
                 self.tree.delete(self.begin_window)
                 self.begin_window += 1
         # Insert at the beginning part of the range before the current window.
@@ -957,7 +957,7 @@ class NamedTableView(TableView):
                                  iid=self.begin_window,
                                  values=format_row(row))
             # Delete exceeded items at the end.
-            while self.nb_view_items > self.limit:
+            while self.nb_view_items > self.max_window_size:
                 self.end_window -= 1
                 self.tree.delete(self.end_window)
         else:
@@ -978,7 +978,7 @@ class NamedTableView(TableView):
 
     def lazy_load(self, begin_index, end_index):
         LOGGER.debug(f"lazy_load({begin_index}, {end_index})")
-        limit = self.limit - self.nb_view_items
+        limit = self.max_window_size - self.nb_view_items
         if limit < self.inc_limit:
             limit = self.inc_limit
         if self.begin_window > 0 and float(begin_index) <= 0.2:
@@ -995,12 +995,12 @@ class NamedTableView(TableView):
 
     def on_tree_configure(self, event):
         LOGGER.debug("on_tree_configure")
-        self.limit = \
+        self.max_window_size = \
             round(event.height / self.row_height) * self.BUFFER_SIZE_FACTOR
         self._update_inc_limit()
 
     def _update_inc_limit(self):
-        self.inc_limit = self.limit // self.BUFFER_SIZE_FACTOR
+        self.inc_limit = self.max_window_size // self.BUFFER_SIZE_FACTOR
 
     def fetch(self, offset, limit):
         LOGGER.debug(f"fetch {offset}, {limit}")
@@ -1017,9 +1017,9 @@ class NamedTableView(TableView):
         LOGGER.debug("restore_state %r", state)
         self.clear_all()
         self.previous_visible_item = state.visible_item
-        self.limit = state.end_window - state.begin_window
+        self.max_window_size = state.end_window - state.begin_window
         self._update_inc_limit()
-        self.fetch(state.begin_window, self.limit)
+        self.fetch(state.begin_window, self.max_window_size)
 
     def clear_all(self):
         assert self.end_window >= self.begin_window
