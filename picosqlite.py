@@ -974,11 +974,7 @@ class NamedTableView(TableView):
             # Insert new items at the end
             excess = last_row - self.end_window
             LOGGER.debug("append %d items", excess)
-            for row in rows[-excess:]:
-                self.tree.insert('', 'end',
-                                 iid=self.end_window,
-                                 values=format_row(row))
-                self.end_window += 1
+            self._append_rows(rows[-excess:], format_row)
             # Delete exceeded items from the beginning.
             while self.nb_view_items > self.max_window_size:
                 self.tree.delete(self.begin_window)
@@ -999,13 +995,19 @@ class NamedTableView(TableView):
             while self.nb_view_items > self.max_window_size:
                 self.end_window -= 1
                 self.tree.delete(self.end_window)
+        # May happens if range entirely overlaps the current window, or
+        # range is non-contiguous with the current window. This can be the
+        # case if the windows is enlarged quickly or if we jump to another
+        # part of the table far way from the current shown area.
         else:
-            # May happens if range entirely overlaps the current window, or
-            # range is non-contiguous with the current window.
-            raise ValueError(
-                f"invalid fetched window ! "
-                f"current=[{self.begin_window}, {self.end_window}]; "
-                f"fetched=[{first_row}, {last_row}]")
+            # Completely clear the tree view and insert all the items.
+            LOGGER.debug("fully overlapping or non-contiguous fetched ranges:"
+                         "window=[%d, %d]; fetched=[%d, %d]",
+                         self.begin_window, self.end_window,
+                         first_row, last_row)
+            self.tree.clear()
+            self.begin_window = self.end_window = first_row
+            self._append_rows(rows, format_row)
         # Adjust TreeView's column width to the newly inserted rows.
         format_row.configure_columns(self.tree)
         # Prevent auto-scroll down after inserting items.
@@ -1014,6 +1016,13 @@ class NamedTableView(TableView):
                 # Scrollbar lower bound may lag during fast scrolling.
                 visible_item = self.row_from_fraction(3/8)
             self.tree.see(visible_item)
+
+    def _append_rows(self, rows, format_row):
+        for row in rows:
+            self.tree.insert('', 'end',
+                             iid=self.end_window,
+                             values=format_row(row))
+            self.end_window += 1
 
     def lazy_load(self, begin_index, end_index):
         LOGGER.debug(f"lazy_load({begin_index}, {end_index})")
