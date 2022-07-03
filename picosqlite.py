@@ -1131,8 +1131,7 @@ class Application(tk.Frame):
     NAME = "Pico SQLite"
     COMMAND_LOG_HISTORY = 1000
 
-    def __init__(self, db_path=None,
-                 query_or_script=None, master=None):
+    def __init__(self, db_path=None, query=None, master=None):
         super().__init__(master)
         self.init_widget()
         self.init_menu()
@@ -1140,11 +1139,8 @@ class Application(tk.Frame):
         self.init_logic()
         if db_path is not None:
             self.open_db(db_path)
-        if query_or_script is not None:
-            if os.path.isfile(query_or_script):
-                self.run_script(query_or_script)
-            else:
-                self.run_query(query_or_script)
+        if query is not None:
+            self.run_query(query)
 
     def init_widget(self):
         self.init_statusbar()
@@ -2061,12 +2057,10 @@ def open_path_in_system_file_manager(path):
             f"on platform '{sys.platform}'")
 
 
-def start_gui(db_path, query_or_script=None):
+def start_gui(db_path, query=None):
     root = tk.Tk()
     root.geometry("600x800")
-    app = Application(db_path=db_path,
-                      query_or_script=query_or_script,
-                      master=root)
+    app = Application(db_path=db_path, query=query, master=root)
     root.protocol('WM_DELETE_WINDOW', app.exit_action)
     root.report_callback_exception = _on_tk_exception
     try:
@@ -2257,10 +2251,10 @@ def build_cli():
         nargs="?",
         help="Path to the DB file to open.")
     parser.add_argument(
-        "query_or_script",
+        "query",
         nargs='?',
         action="store",
-        help="Script or query to run after start-up.")
+        help="Query to run at start-up.")
     return parser
 
 
@@ -2271,8 +2265,7 @@ def main(argv):
     # Respawn without console
     if not options.no_respawn and not running_without_console():
         respawn_without_console()
-    return start_gui(options.db_file,
-                     query_or_script=options.query_or_script)
+    return start_gui(options.db_file, query=options.query)
 
 
 def protected_main(argv):
