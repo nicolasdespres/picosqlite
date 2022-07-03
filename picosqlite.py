@@ -139,6 +139,22 @@ class SQLResult:
             or self.internal_error is not None \
             or self.warning is not None
 
+    def _repr(self, **extra_attrs):
+        """Helper to build repr of the instance in sub-classes."""
+        attrs = dict(
+            request=repr(self.request),
+            started_at=self.started_at.isoformat(),
+            stopped_at=self.stopped_at.isoformat(),
+            error=repr(self.error),
+            warning=repr(self.warning),
+            internal_error=repr(self.internal_error),
+            **extra_attrs)
+        return str(type(self).__class__) \
+            + "(" + ", ".join(f"{k}={v}" for k, v in attrs.items()) + ")"
+
+    def __repr__(self):
+        return self._repr()
+
 
 @dataclass
 class OpenDB(SQLResult):
@@ -163,6 +179,12 @@ ColumnIDS = Tuple[str, ...]
 ColumnNames = Tuple[str, ...]
 
 
+def repr_long_rows(rows):
+    if rows is None:
+        return repr(None)
+    else:
+        return f"[...{len(rows)} items...]"
+
 @dataclass
 class TableRows(SQLResult):
     """Response when loading data from a table to view it."""
@@ -171,6 +193,13 @@ class TableRows(SQLResult):
     column_ids: Optional[ColumnIDS] = None
     column_names: Optional[ColumnNames] = None
 
+    def __repr__(self):
+        return self._repr(
+            rows=repr_long_rows(self.rows),
+            column_ids=repr(self.column_ids),
+            column_names=repr(self.column_names),
+        )
+
 
 @dataclass
 class QueryResult(SQLResult):
@@ -178,6 +207,14 @@ class QueryResult(SQLResult):
     truncated: bool = False
     column_ids: Optional[ColumnIDS] = None
     column_names: Optional[ColumnNames] = None
+
+    def __repr__(self):
+        return self._repr(
+            rows=repr_long_rows(self.rows),
+            truncated=repr(self.truncated),
+            column_ids=repr(self.column_ids),
+            column_names=repr(self.column_names),
+        )
 
 
 class Task(threading.Thread):
