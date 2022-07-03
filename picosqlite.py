@@ -137,7 +137,7 @@ class SQLResult:
             or self.warning is not None
 
     def _repr(self, **extra_attrs):
-        """Helper to build repr of the instance in sub-classes."""
+        """Build repr of the instance in sub-classes."""
         attrs = dict(
             request=repr(self.request),
             started_at=self.started_at.isoformat(),
@@ -181,6 +181,7 @@ def repr_long_rows(rows):
         return repr(None)
     else:
         return f"[...{len(rows)} items...]"
+
 
 @dataclass
 class TableRows(SQLResult):
@@ -923,7 +924,7 @@ class NamedTableView(TableView):
 
     @property
     def nb_view_items(self):
-        """The number of items currently loaded in the view."""
+        """Return the number of items currently loaded in the view."""
         return self.end_window - self.begin_window
 
     def row_from_fraction(self, fraction: float):
