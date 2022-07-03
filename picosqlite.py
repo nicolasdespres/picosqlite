@@ -1113,15 +1113,22 @@ class DBMenu:
     OPEN = "Open..."
     CLOSE = "Close"
     DUMP = "Dump..."
+    EXIT = "Exit"
+
+
+class ViewMenu:
     REFRESH = "Refresh"
-    RUN_QUERY = "Run query"
     CLOSE_RESULT = "Close current result tab"
     CLOSE_ALL_RESULTS = "Close all result tabs"
+
+
+class ConsMenu:
+    """Console menu item name."""
+    RUN_QUERY = "Run query"
     CLEAR_CONSOLE = "Clear console"
     RUN_SCRIPT = "Run script..."
     INTERRUPT = "Interrupt"
     DELETE_ROWS = "Delete rows"
-    EXIT = "Exit"
 
 
 class Application(tk.Frame):
@@ -1203,7 +1210,7 @@ class Application(tk.Frame):
         self.menubar = tk.Menu(self)
         # Set it as the menu of this app top-level window
         self.master.config(menu=self.menubar)
-
+        # **Database menu**
         self.db_menu = tk.Menu(self.menubar)
         self.menubar.add_cascade(label="Database", menu=self.db_menu)
         self.db_menu.add_command(label=DBMenu.NEW, command=self.new_action)
@@ -1213,42 +1220,47 @@ class Application(tk.Frame):
                                  command=self.close_action,
                                  state=tk.DISABLED)
         self.db_menu.add_separator()
-        self.db_menu.add_command(label=DBMenu.REFRESH,
-                                 command=self.refresh_action,
-                                 accelerator="F5",
-                                 state=tk.DISABLED)
-        self.db_menu.add_command(label=DBMenu.RUN_QUERY,
-                                 command=self.run_query_action,
-                                 accelerator="F3",
-                                 state=tk.DISABLED)
-        self.db_menu.add_command(label=DBMenu.CLOSE_RESULT,
-                                 command=self.clear_result_action,
-                                 accelerator="F7",
-                                 state=tk.DISABLED)
-        self.db_menu.add_command(label=DBMenu.CLOSE_ALL_RESULTS,
-                                 command=self.clear_all_results_action,
-                                 state=tk.DISABLED)
-        self.db_menu.add_command(label=DBMenu.CLEAR_CONSOLE,
-                                 command=self.clear_console,
-                                 state=tk.DISABLED)
-        self.db_menu.add_command(label=DBMenu.RUN_SCRIPT,
-                                 command=self.run_script_action,
-                                 state=tk.DISABLED)
-        self.db_menu.add_command(label=DBMenu.INTERRUPT,
-                                 command=self.interrupt_action,
-                                 accelerator="F12",
-                                 state=tk.DISABLED)
-        self.db_menu.add_command(label=DBMenu.DELETE_ROWS,
-                                 command=self.delete_rows_action,
-                                 accelerator="F9",
-                                 state=tk.DISABLED)
-        self.db_menu.add_separator()
         self.db_menu.add_command(label=DBMenu.DUMP,
                                  command=self.dump_action,
                                  state=tk.DISABLED)
         self.db_menu.add_separator()
         self.db_menu.add_command(label=DBMenu.EXIT, command=self.exit_action)
-
+        # **View menu**
+        self.view_menu = tk.Menu(self.menubar)
+        self.menubar.add_cascade(label="View", menu=self.view_menu)
+        self.view_menu.add_command(label=ViewMenu.REFRESH,
+                                   command=self.refresh_action,
+                                   accelerator="F5",
+                                   state=tk.DISABLED)
+        self.view_menu.add_command(label=ViewMenu.CLOSE_RESULT,
+                                   command=self.clear_result_action,
+                                   accelerator="F7",
+                                   state=tk.DISABLED)
+        self.view_menu.add_command(label=ViewMenu.CLOSE_ALL_RESULTS,
+                                   command=self.clear_all_results_action,
+                                   state=tk.DISABLED)
+        # **Console menu**
+        self.console_menu = tk.Menu(self.menubar)
+        self.menubar.add_cascade(label="Console", menu=self.console_menu)
+        self.console_menu.add_command(label=ConsMenu.RUN_QUERY,
+                                      command=self.run_query_action,
+                                      accelerator="F3",
+                                      state=tk.DISABLED)
+        self.console_menu.add_command(label=ConsMenu.RUN_SCRIPT,
+                                      command=self.run_script_action,
+                                      state=tk.DISABLED)
+        self.console_menu.add_command(label=ConsMenu.INTERRUPT,
+                                      command=self.interrupt_action,
+                                      accelerator="F12",
+                                      state=tk.DISABLED)
+        self.console_menu.add_command(label=ConsMenu.CLEAR_CONSOLE,
+                                      command=self.clear_console,
+                                      state=tk.DISABLED)
+        self.console_menu.add_command(label=ConsMenu.DELETE_ROWS,
+                                      command=self.delete_rows_action,
+                                      accelerator="F9",
+                                      state=tk.DISABLED)
+        # **Help menu**
         self.help_menu = tk.Menu(self.menubar)
         self.menubar.add_cascade(label="Help", menu=self.help_menu)
         self.help_menu.add_command(label="Open data folder...",
@@ -1422,10 +1434,10 @@ class Application(tk.Frame):
         self.master.title(self.NAME)
         self.db_menu.entryconfigure(DBMenu.CLOSE, state=tk.DISABLED)
         self.db_menu.entryconfigure(DBMenu.DUMP, state=tk.DISABLED)
-        self.db_menu.entryconfigure(DBMenu.REFRESH, state=tk.DISABLED)
-        self.db_menu.entryconfigure(DBMenu.RUN_QUERY, state=tk.DISABLED)
-        self.db_menu.entryconfigure(DBMenu.RUN_SCRIPT, state=tk.DISABLED)
-        self.db_menu.entryconfigure(DBMenu.INTERRUPT, state=tk.DISABLED)
+        self.view_menu.entryconfigure(ViewMenu.REFRESH, state=tk.DISABLED)
+        self.console_menu.entryconfigure(ConsMenu.RUN_QUERY, state=tk.DISABLED)
+        self.console_menu.entryconfigure(ConsMenu.RUN_SCRIPT, state=tk.DISABLED)
+        self.console_menu.entryconfigure(ConsMenu.INTERRUPT, state=tk.DISABLED)
         self.console.disable()
         self.statusbar.show(StatusMessage.READY_TO_OPEN)
         self.statusbar.set_in_transaction(False)
@@ -1514,10 +1526,10 @@ class Application(tk.Frame):
         self.table_view_saved_states = {}
         self.db_menu.entryconfigure(DBMenu.CLOSE, state=tk.NORMAL)
         self.db_menu.entryconfigure(DBMenu.DUMP, state=tk.NORMAL)
-        self.db_menu.entryconfigure(DBMenu.REFRESH, state=tk.NORMAL)
-        self.db_menu.entryconfigure(DBMenu.RUN_QUERY, state=tk.NORMAL)
-        self.db_menu.entryconfigure(DBMenu.RUN_SCRIPT, state=tk.NORMAL)
-        self.db_menu.entryconfigure(DBMenu.INTERRUPT, state=tk.DISABLED)
+        self.view_menu.entryconfigure(ViewMenu.REFRESH, state=tk.NORMAL)
+        self.console_menu.entryconfigure(ConsMenu.RUN_QUERY, state=tk.NORMAL)
+        self.console_menu.entryconfigure(ConsMenu.RUN_SCRIPT, state=tk.NORMAL)
+        self.console_menu.entryconfigure(ConsMenu.INTERRUPT, state=tk.DISABLED)
         self.console.enable()
         self.statusbar.show(StatusMessage.READY)
 
@@ -1603,8 +1615,8 @@ class Application(tk.Frame):
         if not selected_tab:
             return
         is_result_tab = self.is_result_view_tab(selected_tab)
-        self.db_menu.entryconfigure(
-            DBMenu.CLOSE_RESULT,
+        self.view_menu.entryconfigure(
+            ViewMenu.CLOSE_RESULT,
             state=tk.NORMAL if is_result_tab else tk.DISABLED)
         table_view = tables_notebook.nametowidget(selected_tab)
         if isinstance(table_view, SchemaFrame):
@@ -1630,8 +1642,8 @@ class Application(tk.Frame):
             item_id = selection[0]
         else:
             item_id = ''
-        self.db_menu.entryconfigure(
-            DBMenu.DELETE_ROWS,
+        self.console_menu.entryconfigure(
+            ConsMenu.DELETE_ROWS,
             state=tk.NORMAL if selected_count >= 1 else tk.DISABLED)
         if not item_id:
             self.reset_shown_value()
@@ -1753,10 +1765,10 @@ class Application(tk.Frame):
             self.tables.insert(0, result_table,
                                text=tab_name)
             self.result_view_count += 1
-            self.db_menu.entryconfigure(DBMenu.CLOSE_RESULT,
-                                        state=tk.NORMAL)
-            self.db_menu.entryconfigure(DBMenu.CLOSE_ALL_RESULTS,
-                                        state=tk.NORMAL)
+            self.view_menu.entryconfigure(ViewMenu.CLOSE_RESULT,
+                                          state=tk.NORMAL)
+            self.view_menu.entryconfigure(ViewMenu.CLOSE_ALL_RESULTS,
+                                          state=tk.NORMAL)
             self.tables.select(0)
             footer_parts.append(f"(see <{tab_name}>)")
         self.log(" ".join(footer_parts))
@@ -1772,11 +1784,13 @@ class Application(tk.Frame):
 
     def clear_console(self):
         self.console.clear()
-        self.db_menu.entryconfigure(DBMenu.CLEAR_CONSOLE, state=tk.DISABLED)
+        self.console_menu.entryconfigure(ConsMenu.CLEAR_CONSOLE,
+                                         state=tk.DISABLED)
 
     def log(self, msg, tags=()):
         self.console.log(msg, tags=tags)
-        self.db_menu.entryconfigure(DBMenu.CLEAR_CONSOLE, state=tk.NORMAL)
+        self.console_menu.entryconfigure(ConsMenu.CLEAR_CONSOLE,
+                                         state=tk.NORMAL)
 
     def log_error(self, e):
         self.log(f"Error: {e}\n", tags=("error",))
@@ -1810,8 +1824,8 @@ class Application(tk.Frame):
             if self.is_result_view_tab(tab_idx):
                 self.tables.forget(tab_idx)
         self.result_view_count = 0
-        self.db_menu.entryconfigure(DBMenu.CLOSE_ALL_RESULTS,
-                                    state=tk.DISABLED)
+        self.view_menu.entryconfigure(ViewMenu.CLOSE_ALL_RESULTS,
+                                      state=tk.DISABLED)
 
     def run_script_action(self):
         if self.sql is None:
@@ -1839,17 +1853,17 @@ class Application(tk.Frame):
 
     def enable_sql_execution_state(self):
         self.console.disable()
-        self.db_menu.entryconfigure(DBMenu.RUN_QUERY, state=tk.DISABLED)
-        self.db_menu.entryconfigure(DBMenu.RUN_SCRIPT, state=tk.DISABLED)
-        self.db_menu.entryconfigure(DBMenu.REFRESH, state=tk.DISABLED)
-        self.db_menu.entryconfigure(DBMenu.INTERRUPT, state=tk.NORMAL)
+        self.console_menu.entryconfigure(ConsMenu.RUN_QUERY, state=tk.DISABLED)
+        self.console_menu.entryconfigure(ConsMenu.RUN_SCRIPT, state=tk.DISABLED)
+        self.view_menu.entryconfigure(ViewMenu.REFRESH, state=tk.DISABLED)
+        self.console_menu.entryconfigure(ConsMenu.INTERRUPT, state=tk.NORMAL)
 
     def disable_sql_execution_state(self):
         self.console.enable()
-        self.db_menu.entryconfigure(DBMenu.RUN_QUERY, state=tk.NORMAL)
-        self.db_menu.entryconfigure(DBMenu.RUN_SCRIPT, state=tk.NORMAL)
-        self.db_menu.entryconfigure(DBMenu.REFRESH, state=tk.NORMAL)
-        self.db_menu.entryconfigure(DBMenu.INTERRUPT, state=tk.DISABLED)
+        self.console_menu.entryconfigure(ConsMenu.RUN_QUERY, state=tk.NORMAL)
+        self.console_menu.entryconfigure(ConsMenu.RUN_SCRIPT, state=tk.NORMAL)
+        self.view_menu.entryconfigure(ViewMenu.REFRESH, state=tk.NORMAL)
+        self.console_menu.entryconfigure(ConsMenu.INTERRUPT, state=tk.DISABLED)
 
     def create_task(self, task_class, *args, **kwargs):
         return task_class(*args, root=self.master, **kwargs)
