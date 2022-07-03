@@ -2278,6 +2278,7 @@ def protected_main(argv):
         traceback.print_exception(*sys.exc_info())
         if running_on_windows():
             input("Press ENTER to quit.")
+        status = 1
     finally:
         return status
 
