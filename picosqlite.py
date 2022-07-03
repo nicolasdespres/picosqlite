@@ -955,8 +955,7 @@ class NamedTableView(TableView):
         # If we currently have no item loaded at all.
         if self.begin_window == 0 and self.end_window == 0:
             assert self.nb_view_items == 0
-            self.begin_window = first_row
-            self.end_window = first_row
+            self.begin_window = self.end_window = first_row
         # Nothing to do, if the fetched area is within the current window.
         if self.begin_window <= first_row and last_row <= self.end_window:
             LOGGER.debug("fetched rows are within current window")
