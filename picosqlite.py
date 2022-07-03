@@ -1544,14 +1544,17 @@ class Application(tk.Frame):
 
     def refresh_action(self):
         self.selected_table_index = get_selected_tab_index(self.tables)
-        self.table_view_saved_states = {
-            n: tv.save_state()
-            for n, tv in self.table_views.items()
-        }
+        self.save_table_view_states()
         LOGGER.debug("load tables for refreshing")
         self.load_tables()
         if self.sql is not None:
             self.last_refreshed_at = self.sql.last_modification_time
+
+    def save_table_view_states(self):
+        self.table_view_saved_states = {
+            n: tv.save_state()
+            for n, tv in self.table_views.items()
+        }
 
     def is_result_view(self, tab_text):
         return tab_text.startswith("*")
