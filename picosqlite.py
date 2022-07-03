@@ -878,7 +878,7 @@ class NamedTableView(TableView):
         self.end_offset = 0  # excluded
         self.fetching = False
         self.previous_visible_item = None
-        # How many items are currently loaded.
+        # The limit that cannot be exceeded by the window size.
         self.limit = None
 
     @property
@@ -887,6 +887,7 @@ class NamedTableView(TableView):
 
     @property
     def nb_view_items(self):
+        """The number of items currently loaded in the view."""
         return self.end_offset - self.begin_offset
 
     def row_from_fraction(self, fraction: float):
