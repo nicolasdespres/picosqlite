@@ -1115,8 +1115,8 @@ class DBMenu:
     DUMP = "Dump..."
     REFRESH = "Refresh"
     RUN_QUERY = "Run query"
-    CLEAR_RESULT = "Clear current result"
-    CLEAR_ALL_RESULTS = "Clear all results"
+    CLOSE_RESULT = "Close current result tab"
+    CLOSE_ALL_RESULTS = "Close all result tabs"
     CLEAR_CONSOLE = "Clear console"
     RUN_SCRIPT = "Run script..."
     INTERRUPT = "Interrupt"
@@ -1221,11 +1221,11 @@ class Application(tk.Frame):
                                  command=self.run_query_action,
                                  accelerator="F3",
                                  state=tk.DISABLED)
-        self.db_menu.add_command(label=DBMenu.CLEAR_RESULT,
+        self.db_menu.add_command(label=DBMenu.CLOSE_RESULT,
                                  command=self.clear_result_action,
                                  accelerator="F7",
                                  state=tk.DISABLED)
-        self.db_menu.add_command(label=DBMenu.CLEAR_ALL_RESULTS,
+        self.db_menu.add_command(label=DBMenu.CLOSE_ALL_RESULTS,
                                  command=self.clear_all_results_action,
                                  state=tk.DISABLED)
         self.db_menu.add_command(label=DBMenu.CLEAR_CONSOLE,
@@ -1604,7 +1604,7 @@ class Application(tk.Frame):
             return
         is_result_tab = self.is_result_view_tab(selected_tab)
         self.db_menu.entryconfigure(
-            DBMenu.CLEAR_RESULT,
+            DBMenu.CLOSE_RESULT,
             state=tk.NORMAL if is_result_tab else tk.DISABLED)
         table_view = tables_notebook.nametowidget(selected_tab)
         if isinstance(table_view, SchemaFrame):
@@ -1753,9 +1753,9 @@ class Application(tk.Frame):
             self.tables.insert(0, result_table,
                                text=tab_name)
             self.result_view_count += 1
-            self.db_menu.entryconfigure(DBMenu.CLEAR_RESULT,
+            self.db_menu.entryconfigure(DBMenu.CLOSE_RESULT,
                                         state=tk.NORMAL)
-            self.db_menu.entryconfigure(DBMenu.CLEAR_ALL_RESULTS,
+            self.db_menu.entryconfigure(DBMenu.CLOSE_ALL_RESULTS,
                                         state=tk.NORMAL)
             self.tables.select(0)
             footer_parts.append(f"(see <{tab_name}>)")
@@ -1810,7 +1810,7 @@ class Application(tk.Frame):
             if self.is_result_view_tab(tab_idx):
                 self.tables.forget(tab_idx)
         self.result_view_count = 0
-        self.db_menu.entryconfigure(DBMenu.CLEAR_ALL_RESULTS,
+        self.db_menu.entryconfigure(DBMenu.CLOSE_ALL_RESULTS,
                                     state=tk.DISABLED)
 
     def run_script_action(self):
