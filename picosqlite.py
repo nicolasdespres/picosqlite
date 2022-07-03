@@ -406,7 +406,7 @@ class SQLRunner(Task):
         return dict()
 
     def _run_script(self, filename):
-        with open(filename) as stream:
+        with open(filename, mode='r', encoding='utf-8') as stream:
             self._executescript(stream.read())
 
     def _execute(self, *args, **kwargs):
@@ -428,7 +428,7 @@ class SQLRunner(Task):
         return {}
 
     def _dump(self, filename):
-        with open(filename, "w") as stream, \
+        with open(filename, mode="w", encoding="utf-8") as stream, \
              self._lock:
             for line in self._db.iterdump():
                 stream.write('%s\n' % (line,))
