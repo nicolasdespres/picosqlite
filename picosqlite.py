@@ -1860,6 +1860,7 @@ class Application(tk.Frame):
         self.console_menu.entryconfigure(ConsMenu.RUN_SCRIPT, state=tk.DISABLED)
         self.view_menu.entryconfigure(ViewMenu.REFRESH, state=tk.DISABLED)
         self.console_menu.entryconfigure(ConsMenu.INTERRUPT, state=tk.NORMAL)
+        self.db_menu.entryconfigure(DBMenu.DUMP, state=tk.DISABLED)
 
     def disable_sql_execution_state(self):
         self.console.enable()
@@ -1867,6 +1868,7 @@ class Application(tk.Frame):
         self.console_menu.entryconfigure(ConsMenu.RUN_SCRIPT, state=tk.NORMAL)
         self.view_menu.entryconfigure(ViewMenu.REFRESH, state=tk.NORMAL)
         self.console_menu.entryconfigure(ConsMenu.INTERRUPT, state=tk.DISABLED)
+        self.db_menu.entryconfigure(DBMenu.DUMP, state=tk.NORMAL)
 
     def create_task(self, task_class, *args, **kwargs):
         return task_class(*args, root=self.master, **kwargs)
