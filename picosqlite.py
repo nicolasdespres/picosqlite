@@ -272,6 +272,9 @@ class SQLRunner(Task):
         self._process_result = process_result
         self._requests_q = Queue()
         self._results_q = Queue()
+        # Protect parallel access to _db, _is_processing and _is_closing.
+        # They could be accessed by the main GUI thread and the runner thread
+        # at the same time.
         self._lock = threading.Lock()
         self._db = None
         self._is_processing = False
