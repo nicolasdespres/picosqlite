@@ -400,10 +400,11 @@ class SQLRunner(Task):
     @handler(result_type=Schema)
     def _handle_LoadSchema(self, request: Request.LoadSchema):
         schema = {}
-        table_names = self.list_tables()
-        for table_name in table_names:
-            fields = list(self._execute(f"pragma table_info('{table_name}')"))
-            schema[table_name] = fields
+        with self._lock:
+            for table_name in self.list_tables():
+                fields = list(self._db.execute(
+                    f"pragma table_info('{table_name}')"))
+                schema[table_name] = fields
         return dict(schema=schema)
 
     def _handle_CloseDB(self, request: Request.CloseDB):
@@ -468,8 +469,10 @@ class SQLRunner(Task):
             return self._db.executescript(*args, **kwargs)
 
     def list_tables(self):
-        with self._lock:
-            return list(iter_tables(self._db))
+        assert self._lock.locked()
+        # Return a list and not a generator so that we can execute command
+        # while iterating it.
+        return list(iter_tables(self._db))
 
     def _handle_directive_dump(self, argv, request):
         if len(argv) != 2:
@@ -493,11 +496,7 @@ class SQLRunner(Task):
 
     def _drop_all_tables(self):
         with self._lock:
-            # Load the complete list of table names before to run drop table.
-            # Cannot use the generator here since we cannot run query while
-            # iterating over another query result.
-            table_names = list(iter_tables(self._db))
-            for table_name in table_names:
+            for table_name in self.list_tables():
                 self._db.execute(f"drop table {table_name};")
 
 
