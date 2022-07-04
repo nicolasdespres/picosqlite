@@ -235,6 +235,15 @@ def handler(result_type=None):
             started_at = datetime.now()
             try:
                 payload = func(self, request, *args, **kwargs)
+                if not isinstance(payload, dict):
+                    # Save the payload type before to force it as an empty.
+                    payload_type = type(payload)
+                    # Force an empty dict so that the finally block works ok.
+                    payload = {}
+                    # Raise a proper error explaining the problem.
+                    raise TypeError(
+                        f"handler function {func.__name__} did not return a "
+                        f"dict object, but a {payload_type.__name__}")
             except sqlite3.Error as e:
                 error = e
             except sqlite3.Warning as w:
@@ -243,6 +252,7 @@ def handler(result_type=None):
                 internal_error = sys.exc_info()
             finally:
                 stopped_at = datetime.now()
+                assert isinstance(payload, dict)
                 return result_type(
                     request=request,
                     started_at=started_at,
@@ -435,7 +445,9 @@ class SQLRunner(Task):
         except AttributeError:
             raise RuntimeError(f"invalid directive: '{directive}'")
         else:
-            return handler(argv, request)
+            ret = handler(argv, request)
+            assert isinstance(ret, dict)
+            return ret
 
     def _handle_directive_run(self, argv, request):
         if len(argv) != 2:
