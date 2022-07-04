@@ -1468,6 +1468,7 @@ class Application(tk.Frame):
         if not self.safely_close_db():
             return
         self.master.title(self.NAME)
+        self.console.disable()
         self.db_menu.entryconfigure(DBMenu.CLOSE, state=tk.DISABLED)
         self.db_menu.entryconfigure(DBMenu.DUMP, state=tk.DISABLED)
         self.view_menu.entryconfigure(ViewMenu.REFRESH, state=tk.DISABLED)
@@ -1475,7 +1476,6 @@ class Application(tk.Frame):
         self.console_menu.entryconfigure(ConsMenu.RUN_SCRIPT, state=tk.DISABLED)
         self.console_menu.entryconfigure(ConsMenu.INTERRUPT, state=tk.DISABLED)
         self.console_menu.entryconfigure(ConsMenu.DROP_ALL, state=tk.DISABLED)
-        self.console.disable()
         self.statusbar.show(StatusMessage.READY_TO_OPEN)
         self.statusbar.set_in_transaction(False)
         LOGGER.debug("unload tables when closing DB")
@@ -1562,13 +1562,7 @@ class Application(tk.Frame):
             self.selected_table_index = None
         self.table_view_saved_states = {}
         self.db_menu.entryconfigure(DBMenu.CLOSE, state=tk.NORMAL)
-        self.db_menu.entryconfigure(DBMenu.DUMP, state=tk.NORMAL)
-        self.view_menu.entryconfigure(ViewMenu.REFRESH, state=tk.NORMAL)
-        self.console_menu.entryconfigure(ConsMenu.RUN_QUERY, state=tk.NORMAL)
-        self.console_menu.entryconfigure(ConsMenu.RUN_SCRIPT, state=tk.NORMAL)
-        self.console_menu.entryconfigure(ConsMenu.INTERRUPT, state=tk.DISABLED)
-        self.console_menu.entryconfigure(ConsMenu.DROP_ALL, state=tk.NORMAL)
-        self.console.enable()
+        self.disable_sql_execution_state()
         self.statusbar.show(StatusMessage.READY)
 
     def on_sql_TableRows(self, result: TableRows):
@@ -1891,21 +1885,21 @@ class Application(tk.Frame):
 
     def enable_sql_execution_state(self):
         self.console.disable()
+        self.db_menu.entryconfigure(DBMenu.DUMP, state=tk.DISABLED)
+        self.view_menu.entryconfigure(ViewMenu.REFRESH, state=tk.DISABLED)
         self.console_menu.entryconfigure(ConsMenu.RUN_QUERY, state=tk.DISABLED)
         self.console_menu.entryconfigure(ConsMenu.RUN_SCRIPT, state=tk.DISABLED)
-        self.view_menu.entryconfigure(ViewMenu.REFRESH, state=tk.DISABLED)
         self.console_menu.entryconfigure(ConsMenu.INTERRUPT, state=tk.NORMAL)
         self.console_menu.entryconfigure(ConsMenu.DROP_ALL, state=tk.DISABLED)
-        self.db_menu.entryconfigure(DBMenu.DUMP, state=tk.DISABLED)
 
     def disable_sql_execution_state(self):
         self.console.enable()
+        self.db_menu.entryconfigure(DBMenu.DUMP, state=tk.NORMAL)
+        self.view_menu.entryconfigure(ViewMenu.REFRESH, state=tk.NORMAL)
         self.console_menu.entryconfigure(ConsMenu.RUN_QUERY, state=tk.NORMAL)
         self.console_menu.entryconfigure(ConsMenu.RUN_SCRIPT, state=tk.NORMAL)
-        self.view_menu.entryconfigure(ViewMenu.REFRESH, state=tk.NORMAL)
         self.console_menu.entryconfigure(ConsMenu.INTERRUPT, state=tk.DISABLED)
         self.console_menu.entryconfigure(ConsMenu.DROP_ALL, state=tk.NORMAL)
-        self.db_menu.entryconfigure(DBMenu.DUMP, state=tk.NORMAL)
 
     def create_task(self, task_class, *args, **kwargs):
         return task_class(*args, root=self.master, **kwargs)
