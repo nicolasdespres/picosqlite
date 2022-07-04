@@ -752,8 +752,10 @@ class ColorSyntax:
 class Console(ttk.Panedwindow):
 
     def __init__(self, master=None, run_query_command=None,
-                 command_log_maxline=1000):
+                 command_log_maxline=1000,
+                 runnable_state_update_callback=None):
         super().__init__(master, orient=tk.VERTICAL)
+        self._runnable_state_update_callback = runnable_state_update_callback
 
         # **Query**
         self.query_frame = tk.Frame()
@@ -795,6 +797,8 @@ class Console(ttk.Panedwindow):
     def disable(self):
         self.query_text['state'] = tk.DISABLED
         self.run_query_bt['state'] = tk.DISABLED
+        if self._runnable_state_update_callback is not None:
+            self._runnable_state_update_callback(tk.DISABLED)
 
     def get_current_query(self):
         return self.query_text.get('1.0', 'end').strip()
@@ -820,7 +824,10 @@ class Console(ttk.Panedwindow):
             return tk.DISABLED
 
     def _update_run_query_bt_state(self):
-        self.run_query_bt['state'] = self._get_run_query_bt_state()
+        state = self._get_run_query_bt_state()
+        self.run_query_bt['state'] = state
+        if self._runnable_state_update_callback is not None:
+            self._runnable_state_update_callback(state)
 
     def _is_valid_query(self, query):
         return sqlite3.complete_statement(query) \
@@ -1170,8 +1177,8 @@ class Application(tk.Frame):
 
     def __init__(self, db_path=None, query=None, master=None):
         super().__init__(master)
-        self.init_widget()
         self.init_menu()
+        self.init_widget()
         self.init_layout()
         self.init_logic()
         if db_path is not None:
@@ -1189,8 +1196,10 @@ class Application(tk.Frame):
 
         # Bottom notebook
         self.bottom_nb = ttk.Notebook(self.pane)
-        self.console = Console(self, run_query_command=self.run_query_action,
-                               command_log_maxline=self.COMMAND_LOG_HISTORY)
+        self.console = Console(
+            self, run_query_command=self.run_query_action,
+            command_log_maxline=self.COMMAND_LOG_HISTORY,
+            runnable_state_update_callback=self._update_run_query_state)
         self.init_detailed_view()
         self.bottom_nb.add(self.console, text="Console")
         self.bottom_nb.add(self.detailed_view, text="Details")
@@ -1882,11 +1891,13 @@ class Application(tk.Frame):
     def run_script(self, script_filename):
         self.run_query(f".run {shlex.quote(script_filename)}")
 
+    def _update_run_query_state(self, state):
+        self.console_menu.entryconfigure(ConsMenu.RUN_QUERY, state=state)
+
     def enable_sql_execution_state(self):
         self.console.disable()
         self.db_menu.entryconfigure(DBMenu.DUMP, state=tk.DISABLED)
         self.view_menu.entryconfigure(ViewMenu.REFRESH, state=tk.DISABLED)
-        self.console_menu.entryconfigure(ConsMenu.RUN_QUERY, state=tk.DISABLED)
         self.console_menu.entryconfigure(ConsMenu.RUN_SCRIPT, state=tk.DISABLED)
         self.console_menu.entryconfigure(ConsMenu.INTERRUPT, state=tk.NORMAL)
         self.console_menu.entryconfigure(ConsMenu.DROP_ALL, state=tk.DISABLED)
@@ -1895,7 +1906,6 @@ class Application(tk.Frame):
         self.console.enable()
         self.db_menu.entryconfigure(DBMenu.DUMP, state=tk.NORMAL)
         self.view_menu.entryconfigure(ViewMenu.REFRESH, state=tk.NORMAL)
-        self.console_menu.entryconfigure(ConsMenu.RUN_QUERY, state=tk.NORMAL)
         self.console_menu.entryconfigure(ConsMenu.RUN_SCRIPT, state=tk.NORMAL)
         self.console_menu.entryconfigure(ConsMenu.INTERRUPT, state=tk.DISABLED)
         self.console_menu.entryconfigure(ConsMenu.DROP_ALL, state=tk.NORMAL)
