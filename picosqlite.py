@@ -483,6 +483,23 @@ class SQLRunner(Task):
             for line in self._db.iterdump():
                 stream.write('%s\n' % (line,))
 
+    def _handle_directive_drop_all_tables(self, argv, request):
+        argc = len(argv)
+        if argc != 1:
+            raise RuntimeError(".drop_all_tables expects no argument, "
+                               f"not {argc}")
+        self._drop_all_tables()
+        return {}
+
+    def _drop_all_tables(self):
+        with self._lock:
+            # Load the complete list of table names before to run drop table.
+            # Cannot use the generator here since we cannot run query while
+            # iterating over another query result.
+            table_names = list(iter_tables(self._db))
+            for table_name in table_names:
+                self._db.execute(f"drop table {table_name};")
+
 
 def head(it, n=100):
     while n > 0:
@@ -665,7 +682,7 @@ class ColorSyntax:
         "NULL"
     )
 
-    INTERNALS = ("run", "dump")
+    INTERNALS = ("run", "dump", "drop_all_tables")
 
     def __init__(self):
         self.tables = set()
@@ -1144,6 +1161,7 @@ class ConsMenu:
     RUN_SCRIPT = "Run script..."
     INTERRUPT = "Interrupt"
     DELETE_ROWS = "Delete rows"
+    DROP_ALL = "Drop all tables"
 
 
 class Application(tk.Frame):
@@ -1274,6 +1292,9 @@ class Application(tk.Frame):
         self.console_menu.add_command(label=ConsMenu.DELETE_ROWS,
                                       command=self.delete_rows_action,
                                       accelerator="F9",
+                                      state=tk.DISABLED)
+        self.console_menu.add_command(label=ConsMenu.DROP_ALL,
+                                      command=self.drop_all_tables_action,
                                       state=tk.DISABLED)
         # **Help menu**
         self.help_menu = tk.Menu(self.menubar)
@@ -1453,6 +1474,7 @@ class Application(tk.Frame):
         self.console_menu.entryconfigure(ConsMenu.RUN_QUERY, state=tk.DISABLED)
         self.console_menu.entryconfigure(ConsMenu.RUN_SCRIPT, state=tk.DISABLED)
         self.console_menu.entryconfigure(ConsMenu.INTERRUPT, state=tk.DISABLED)
+        self.console_menu.entryconfigure(ConsMenu.DROP_ALL, state=tk.DISABLED)
         self.console.disable()
         self.statusbar.show(StatusMessage.READY_TO_OPEN)
         self.statusbar.set_in_transaction(False)
@@ -1545,6 +1567,7 @@ class Application(tk.Frame):
         self.console_menu.entryconfigure(ConsMenu.RUN_QUERY, state=tk.NORMAL)
         self.console_menu.entryconfigure(ConsMenu.RUN_SCRIPT, state=tk.NORMAL)
         self.console_menu.entryconfigure(ConsMenu.INTERRUPT, state=tk.DISABLED)
+        self.console_menu.entryconfigure(ConsMenu.DROP_ALL, state=tk.NORMAL)
         self.console.enable()
         self.statusbar.show(StatusMessage.READY)
 
@@ -1872,6 +1895,7 @@ class Application(tk.Frame):
         self.console_menu.entryconfigure(ConsMenu.RUN_SCRIPT, state=tk.DISABLED)
         self.view_menu.entryconfigure(ViewMenu.REFRESH, state=tk.DISABLED)
         self.console_menu.entryconfigure(ConsMenu.INTERRUPT, state=tk.NORMAL)
+        self.console_menu.entryconfigure(ConsMenu.DROP_ALL, state=tk.DISABLED)
         self.db_menu.entryconfigure(DBMenu.DUMP, state=tk.DISABLED)
 
     def disable_sql_execution_state(self):
@@ -1880,6 +1904,7 @@ class Application(tk.Frame):
         self.console_menu.entryconfigure(ConsMenu.RUN_SCRIPT, state=tk.NORMAL)
         self.view_menu.entryconfigure(ViewMenu.REFRESH, state=tk.NORMAL)
         self.console_menu.entryconfigure(ConsMenu.INTERRUPT, state=tk.DISABLED)
+        self.console_menu.entryconfigure(ConsMenu.DROP_ALL, state=tk.NORMAL)
         self.db_menu.entryconfigure(DBMenu.DUMP, state=tk.NORMAL)
 
     def create_task(self, task_class, *args, **kwargs):
@@ -1948,6 +1973,22 @@ class Application(tk.Frame):
                       message=str(result.internal_error))
         else:
             raise RuntimeError("unexpected result state error")
+
+    def drop_all_tables_action(self):
+        if self.sql is None:
+            return False
+        is_yes = askyesno(
+            parent=self,
+            title="Drop all tables confirmation",
+            message="Do you really want to drop all tables of the database?")
+        if not is_yes:
+            return False
+        self.drop_all_tables()
+        return True
+
+    def drop_all_tables(self):
+        assert self.sql is not None
+        self.run_query(".drop_all_tables")
 
 
 def write_to_tk_text_log(log, msg, tags=()):
