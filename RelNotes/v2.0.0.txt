@@ -1,0 +1,62 @@
+Second non-beta release
+
+New features since v1.0.1:
+
+- Main "Database" menu has been split into three menu including two new menus
+  "View" and "Console".
+
+- On Windows, the console window is hidden at startup.
+
+- The Python version number is now shown in the about dialog box.
+
+- SQL string are now highlighted.
+
+- Color for syntax highlighting has been adjusted to improve readability and
+  properly support dark/light theme.
+
+- An activity log is written in the local user data. A menu item has been added
+  to easily open the directory are log files are stored.
+
+- A new .drop_all_tables internal directive has been added.
+
+- None value are no shown as an empty cell.
+
+- The CLI now accepts a query to be run at start-up.
+
+- The "Run query" menu item is disabled/enabled the same way the "Run" button
+  in the console window is disabled/enabled.
+
+- The "Clear result" menu item has been renamed to "Close result tab" for better
+  clarity.
+
+
+Bug fix since v1.0.1:
+
+- In some circumstances, inserted value did not appear in the view. This is was
+  due to incorrectly handled interleaved fetch requests. The way we insert
+  fetched rows in the view is now more tolerant to overlapping window, and thus,
+  is more robust to handle interleaved fetch requests which are now allowed.
+
+- Uncaught exception are now written in the log file and the user.
+
+- Prevent the console window to close before the user has a chance to read
+  uncaught exception on Windows.
+
+- Properly warn against uncommitted data when quitting.
+
+- Properly convert NULL SQL's value type to None value type in Python.  We now
+  fallback to None if we do not understand the SQL's value type.
+
+- No longer mangle string value using Python representation which is not the
+  same as SQL's string representation.
+
+- Row deletion now works event if the primary key is not the first column.
+
+
+Refactoring:
+
+- Many warnings related to code formatting and documentation has been fixed.
+
+- The code for lazy data loading has been commented, clarified and refactored.
+
+- Explicitly use UTF-8 when opening files on all platform.
