@@ -19,7 +19,7 @@ EOF
 while browsing the change log since last release:
 
 ```bash
-git log vX.Y.Z..
+git log --reverse $(./last-tag.sh)..
 ```
 
 3. Commit the release note file

@@ -22,7 +22,7 @@ unset CDPATH
 
 NAME="picosqlite"
 ORIGINAL_FILE="$NAME.py"
-VERSION="$(git describe --match='v*' --dirty)"
+VERSION="$(./describe.sh)"
 DIST_DIR=dist
 mkdir -p "$DIST_DIR"
 RELEASE_FILE="${DIST_DIR}/${NAME}.py"
