@@ -18,6 +18,7 @@ schema viewer.
 - Query runner and result viewer
 - Script runner
 - Syntax highlighting
+- Active transaction indicator
 
 # Installation
 
