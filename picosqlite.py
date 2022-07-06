@@ -1934,7 +1934,7 @@ class Application(tk.Frame):
             f"table '{table_view.table_name}'?")
         if ans == 'no':
             return False
-        ids = ", ".join(str(table_view.tree.item(i, 'values')[0])
+        ids = ", ".join(str(table_view.tree.item(i, 'values')[pk.cid])
                         for i in selection)
         query = f"""\
         DELETE FROM {table_view.table_name} WHERE {pk.name} IN ({ids});
