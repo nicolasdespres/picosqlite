@@ -1481,7 +1481,8 @@ class Application(tk.Frame):
         self.db_menu.entryconfigure(DBMenu.DUMP, state=tk.DISABLED)
         self.view_menu.entryconfigure(ViewMenu.REFRESH, state=tk.DISABLED)
         self.console_menu.entryconfigure(ConsMenu.RUN_QUERY, state=tk.DISABLED)
-        self.console_menu.entryconfigure(ConsMenu.RUN_SCRIPT, state=tk.DISABLED)
+        self.console_menu.entryconfigure(ConsMenu.RUN_SCRIPT,
+                                         state=tk.DISABLED)
         self.console_menu.entryconfigure(ConsMenu.INTERRUPT, state=tk.DISABLED)
         self.console_menu.entryconfigure(ConsMenu.DROP_ALL, state=tk.DISABLED)
         self.statusbar.show(StatusMessage.READY_TO_OPEN)
@@ -1898,7 +1899,8 @@ class Application(tk.Frame):
         self.console.disable()
         self.db_menu.entryconfigure(DBMenu.DUMP, state=tk.DISABLED)
         self.view_menu.entryconfigure(ViewMenu.REFRESH, state=tk.DISABLED)
-        self.console_menu.entryconfigure(ConsMenu.RUN_SCRIPT, state=tk.DISABLED)
+        self.console_menu.entryconfigure(ConsMenu.RUN_SCRIPT,
+                                         state=tk.DISABLED)
         self.console_menu.entryconfigure(ConsMenu.INTERRUPT, state=tk.NORMAL)
         self.console_menu.entryconfigure(ConsMenu.DROP_ALL, state=tk.DISABLED)
 
