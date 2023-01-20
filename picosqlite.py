@@ -2329,11 +2329,9 @@ def protected_main(argv):
     try:
         status = main(argv)
     except Exception:
-        LOGGER.exception("Internal error")
+        LOGGER.exception("Un-caught exception")
         sys.stdout.flush()
         sys.stderr.flush()
-        print("=" * 50, flush=True)
-        traceback.print_exception(*sys.exc_info())
         if running_on_windows():
             input("Press ENTER to quit.")
         status = 1
