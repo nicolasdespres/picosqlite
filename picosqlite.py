@@ -682,8 +682,6 @@ class ColorSyntax:
     INTERNALS = ("run", "dump", "drop_all_tables")
 
     def __init__(self):
-        self.tables = set()
-        self.fields = set()
         self._recompile()
 
     def _recompile(self):
@@ -695,16 +693,12 @@ class ColorSyntax:
             r"""
               (?P<comment>    --.*$)
             | (?P<keyword>    \b(?i:%(keywords)s)\b)
-            | (?P<table>      \b(?i:%(tables)s)\b)
-            | (?P<field>      \b(?i:%(fields)s)\b)
             | (?P<directive>  \b(?i:%(directives)s)\b)
             | (?P<datatypes>  \b(?i:%(datatypes)s)\b)
             | (?P<internal>   ^\s*\.(?i:%(internals)s)\b)
             | (?P<string>     (%(string)s))
             """ % {
                 "keywords": mk_regex_any_word(self.SQL_KEYWORDS),
-                "tables": mk_regex_any_word(self.tables),
-                "fields": mk_regex_any_word(self.fields),
                 "directives": mk_regex_any_word(self.SQL_DIRECTIVES),
                 "datatypes": mk_regex_any_word(self.SQL_DATATYPES),
                 "internals": mk_regex_any_word(self.INTERNALS),
@@ -717,8 +711,6 @@ class ColorSyntax:
         field_fg = "green"
         text.tag_configure("keyword", foreground=keyword_fg)
         text.tag_configure("comment", foreground="#555555")
-        text.tag_configure("table", foreground="#B04600")
-        text.tag_configure("field", foreground=field_fg)
         text.tag_configure("directive", foreground=keyword_fg, underline=True)
         text.tag_configure("datatypes", foreground=field_fg, underline=True)
         text.tag_configure("internal", foreground="#E311E3")
@@ -728,8 +720,6 @@ class ColorSyntax:
         content = text.get(start, end)
         text.tag_remove("keyword", start, end)
         text.tag_remove("comment", start, end)
-        text.tag_remove("table", start, end)
-        text.tag_remove("field", start, end)
         text.tag_remove("directive", start, end)
         text.tag_remove("datatypes", start, end)
         text.tag_remove("internal", start, end)
@@ -740,11 +730,6 @@ class ColorSyntax:
                 token_start = f"{start}+{match_start}c"
                 token_end = f"{start}+{match_end}c"
                 text.tag_add(group_name, token_start, token_end)
-
-    def set_database_names(self, tables, fields):
-        self.tables = tables
-        self.fields = fields
-        self._recompile()
 
 
 class Console(ttk.Panedwindow):
@@ -1549,11 +1534,8 @@ class Application(tk.Frame):
         schema = result.schema
         assert schema is not None  # None only when there are errors.
         self.unload_tables()  # Unload tables before to load them.
-        field_names = set()
         self.tables.add(self.schema, text=self.schema.TAB_NAME)
         for table_name, fields in schema.items():
-            for field in fields:
-                field_names.add(field[1])
             self.schema.add_table(table_name, fields)
             table_view = self.create_table_view(
                 NamedTableView,
@@ -1564,8 +1546,6 @@ class Application(tk.Frame):
                 table_view.restore_state(
                     self.table_view_saved_states[table_name])
         self.schema.finish_table_insertion()
-        self.console.color_syntax.set_database_names(self.table_views.keys(),
-                                                     field_names)
         if self.selected_table_index is not None \
            and 0 <= self.selected_table_index < self.tables.index('end'):
             self.tables.select(self.selected_table_index)
