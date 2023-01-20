@@ -1,0 +1,17 @@
+Bug fix release
+
+Bug fix since v2.0.0:
+
+- Table names and field names are no longer highlighted. Although this
+  feature works great with SELECT query, it can be confusing for beginners
+  when writing CREATE TABLE queries, since some fields may be highlighted
+  (if present in other tables) whereas others may not.
+
+- Fix the respawn mechanism on some weirdly configured Windows machine where
+  os.execv does not respawn the application.
+
+Refactoring:
+
+- English in documentation improved and extended in various ways.
+
+- No longer print twice un-caught exceptions.
