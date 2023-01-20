@@ -10,11 +10,11 @@ Main features:
 
 New features since v0.1.1:
 - A "Clear console" item menu.
-- Warn user when closing a DB with uncommitted data.
+- Warn users when closing a DB with uncommitted data.
 
 Bug fix since v0.1.1:
-- Honor user theme by not forcing the query text background.
-- Larger first column to leaver room for Windows +/- icon in tree view.
+- Honor user's theme by not forcing the query text background.
+- Larger first column to leave room for Windows +/- icon in tree view.
 - Pico now closes the DB if it has failed to load the schema.
 - Highlight ISNULL keyword.
 - Running an empty query no longer generate an internal error.

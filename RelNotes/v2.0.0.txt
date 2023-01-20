@@ -2,14 +2,14 @@ Second non-beta release
 
 New features since v1.0.1:
 
-- Main "Database" menu has been split into three menu including two new menus
+- Main "Database" menu has been split into three menus including two new menus
   "View" and "Console".
 
 - On Windows, the console window is hidden at startup.
 
 - The Python version number is now shown in the about dialog box.
 
-- SQL string are now highlighted.
+- SQL strings are now highlighted.
 
 - Color for syntax highlighting has been adjusted to improve readability and
   properly support dark/light theme.
@@ -19,9 +19,9 @@ New features since v1.0.1:
 
 - A new .drop_all_tables internal directive has been added.
 
-- None value are no shown as an empty cell.
+- None values are now shown as an empty cell.
 
-- The CLI now accepts a query to be run at start-up.
+- The CLI now accepts a query to be run when the program starts up.
 
 - The "Run query" menu item is disabled/enabled the same way the "Run" button
   in the console window is disabled/enabled.
@@ -32,15 +32,15 @@ New features since v1.0.1:
 
 Bug fix since v1.0.1:
 
-- In some circumstances, inserted value did not appear in the view. This is was
+- In some circumstances, inserted value did not appear in the view. This was
   due to incorrectly handled interleaved fetch requests. The way we insert
-  fetched rows in the view is now more tolerant to overlapping window, and thus,
+  fetched rows in the view is now more tolerant to overlapping windows, and thus,
   is more robust to handle interleaved fetch requests which are now allowed.
 
-- Uncaught exception are now written in the log file and the user.
+- Un-caught exceptions are now written in the log file and the user.
 
 - Prevent the console window to close before the user has a chance to read
-  uncaught exception on Windows.
+ un-caught exceptions on Windows.
 
 - Properly warn against uncommitted data when quitting.
 
@@ -50,7 +50,7 @@ Bug fix since v1.0.1:
 - No longer mangle string value using Python representation which is not the
   same as SQL's string representation.
 
-- Row deletion now works event if the primary key is not the first column.
+- Row deletion now works even if the primary key is not the first column.
 
 
 Refactoring:

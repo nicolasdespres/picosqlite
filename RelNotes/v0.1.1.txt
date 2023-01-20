@@ -2,9 +2,9 @@ Bug fix release with few enhancements:
 
 - Queries are run in a separated thread.
 - Add interrupt button.
-- Properly handle closing of the database.
+- Properly handle the closing of the database.
 - Detect change of the database outside of the process.
-- Allow to delete rows and update cells value.
+- Allow deleting rows and update cell value.
 - Show whether we are in the middle of a transaction.
 - Python 3.7.0 compatibility.
-- Allow to dump the database content to a file.
+- Allow dumping the database content to a file.
