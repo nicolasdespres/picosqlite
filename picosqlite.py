@@ -693,7 +693,7 @@ class ColorSyntax:
 
         self._sql_re = re.compile(
             r"""
-              (?P<comment>    ^\s*--.*$)
+              (?P<comment>    --.*$)
             | (?P<keyword>    \b(?i:%(keywords)s)\b)
             | (?P<table>      \b(?i:%(tables)s)\b)
             | (?P<field>      \b(?i:%(fields)s)\b)
