@@ -2275,7 +2275,10 @@ def respawn_without_console():
     argv.append('--no-respawn')
     LOGGER.info("cwd: %s", os.getcwd())
     LOGGER.info("respawning: %r", argv)
-    os.execv(win_exec, argv)
+    # Uses subprocess.Popen since os.execv does not work well on some
+    # Windows machine (at LCP for instance).
+    sp.Popen(argv, executable=win_exec)
+    sys.exit(0)
 
 
 def build_cli():
