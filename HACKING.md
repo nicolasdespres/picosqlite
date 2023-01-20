@@ -8,10 +8,14 @@ Look at previous release numbers:
 git tag
 ```
 
+```bash
+export VERSION=X.Y.Z
+```
+
 2. Write a release note file.
 
 ```bash
-cat >RelNotes/vX.Y.Z.txt <<EOF
+cat >RelNotes/v$VERSION.txt <<EOF
 bla bla bla...
 EOF
 ```
@@ -25,14 +29,14 @@ git log --reverse $(./last-tag.sh)..
 3. Commit the release note file.
 
 ```bash
-git add RelNotes/vX.Y.Z.txt
-git commit -m 'Add release note for vX.Y.Z'
+git add RelNotes/v$VERSION.txt
+git commit -m 'Add release note for v$VERSION'
 ```
 
 4. Create a git tag.
 
 ```bash
-./tag.sh <VERSION>
+./tag.sh $VERSION
 ```
 
 5. Create a release (it is a single python file). The version number
@@ -43,6 +47,11 @@ git commit -m 'Add release note for vX.Y.Z'
 ```
 
 6. Push the commits and the tags.
+
+```bash
+git push --tags
+unset VERSION
+```
 
 7. Create a release on GitHub and drop the file in the dist/ directory
    there.
