@@ -6,7 +6,7 @@ purpose.
 
 The sqlite3 command-line interface is too low-level for beginners
 whereas most viewers available are too feature full and may be
-confusing for new comers.
+confusing for newcomers.
 
 Pico SQLite is a Tk-based command-line interface with a table and
 schema viewer.

@@ -1,6 +1,6 @@
 # Make a release
 
-1. Choose a version number
+1. Choose a version number.
 
 Look at previous release numbers:
 
@@ -8,7 +8,7 @@ Look at previous release numbers:
 git tag
 ```
 
-2. Write a release note file
+2. Write a release note file.
 
 ```bash
 cat >RelNotes/vX.Y.Z.txt <<EOF
@@ -22,14 +22,14 @@ while browsing the change log since last release:
 git log --reverse $(./last-tag.sh)..
 ```
 
-3. Commit the release note file
+3. Commit the release note file.
 
 ```bash
 git add RelNotes/vX.Y.Z.txt
 git commit -m 'Add release note for vX.Y.Z'
 ```
 
-4. Create a git tag
+4. Create a git tag.
 
 ```bash
 ./tag.sh <VERSION>
