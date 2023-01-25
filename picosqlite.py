@@ -955,7 +955,11 @@ class NamedTableView(TableView):
         return int(self.nb_view_items * fraction) + self.begin_window
 
     def get_visible_item(self):
-        ys_begin, ys_end = self.ys.get()
+        values = self.ys.get()
+        if len(values) != 2:  # In some rare cases, ys.get() may not
+                              # return two values...
+            return
+        ys_begin, ys_end = values
         return self.row_from_fraction(ys_begin)
 
     def insert(self, rows, column_ids, column_names, offset, limit):
@@ -968,13 +972,20 @@ class NamedTableView(TableView):
             LOGGER.debug("no row fetched between %d and %d",
                          first_row, last_row)
             return
-        ys_begin, ys_end = self.ys.get()
-        LOGGER.debug(
-            "inserting %d row(s) (asked %d) into %s from %d to %d; "
-            "current=[%d, %d]; visible=[%d, %d]",
-            len(rows), limit, self.table_name, first_row, last_row,
-            self.begin_window, self.end_window,
-            ys_begin, ys_end)
+        # Log that we are inserting rows in the tree view.
+        ys_values = self.ys.get()
+        if len(ys_values) == 2:  # In some rare cases, ys.get() may not
+                                 # return two values...
+            ys_begin, ys_end = ys_values
+            LOGGER.debug(
+                "inserting %d row(s) (asked %d) into %s from %d to %d; "
+                "current=[%d, %d]; visible=[%d, %d]",
+                len(rows), limit, self.table_name, first_row, last_row,
+                self.begin_window, self.end_window,
+                ys_begin, ys_end)
+            del ys_begin, ys_end
+        del ys_values
+        # Build the row formatter.
         format_row = RowFormatter(column_ids, column_names)
         # If we currently have no item loaded at all.
         if self.begin_window == 0 and self.end_window == 0:
@@ -1035,7 +1046,7 @@ class NamedTableView(TableView):
         # Adjust TreeView's column width to the newly inserted rows.
         format_row.configure_columns(self.tree)
         # Prevent auto-scroll down after inserting items.
-        if self.nb_view_items > 0:
+        if self.nb_view_items > 0 and visible_item is not None:
             if not self.tree.exists(visible_item):
                 # Scrollbar lower bound may lag during fast scrolling.
                 visible_item = self.row_from_fraction(3/8)
