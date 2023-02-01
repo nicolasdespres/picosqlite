@@ -7,4 +7,4 @@ Bug fix since v2.0.1:
 
 Refactoring:
 
-- English and internale documentation improvement.
+- English and internal documentation improvement.
