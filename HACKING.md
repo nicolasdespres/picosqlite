@@ -30,7 +30,7 @@ git log --reverse $(./last-tag.sh)..
 
 ```bash
 git add RelNotes/v$VERSION.txt
-git commit -m 'Add release note for v$VERSION'
+git commit -m "Add release notes for v$VERSION"
 ```
 
 4. Create a git tag.
