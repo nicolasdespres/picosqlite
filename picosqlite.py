@@ -1041,7 +1041,7 @@ class NamedTableView(TableView):
                 "window=[%d, %d]; fetched=[%d, %d]",
                 self.begin_window, self.end_window,
                 first_row, last_row)
-            self.tree.clear()
+            self.clear_all()
             self.begin_window = self.end_window = first_row
             self._append_rows(rows, format_row)
         # Adjust TreeView's column width to the newly inserted rows.
