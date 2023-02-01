@@ -1036,10 +1036,11 @@ class NamedTableView(TableView):
         # part of the table far way from the current shown area.
         else:
             # Completely clear the tree view and insert all the items.
-            LOGGER.debug("fully overlapping or non-contiguous fetched ranges:"
-                         "window=[%d, %d]; fetched=[%d, %d]",
-                         self.begin_window, self.end_window,
-                         first_row, last_row)
+            LOGGER.debug(
+                "fully overlapping or non-contiguous fetched ranges: "
+                "window=[%d, %d]; fetched=[%d, %d]",
+                self.begin_window, self.end_window,
+                first_row, last_row)
             self.tree.clear()
             self.begin_window = self.end_window = first_row
             self._append_rows(rows, format_row)
