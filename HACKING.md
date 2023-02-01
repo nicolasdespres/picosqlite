@@ -49,7 +49,7 @@ git commit -m "Add release notes for v$VERSION"
 6. Push the commits and the tags.
 
 ```bash
-git push --tags
+git push --tags origin master
 unset VERSION
 ```
 
