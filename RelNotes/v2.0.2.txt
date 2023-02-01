@@ -1,0 +1,10 @@
+Bug fix release
+
+Bug fix since v2.0.1:
+
+- Fix misused of TCL/Tk Treeview and Scrollbar widget triggered in some
+  rare cases.
+
+Refactoring:
+
+- English and internale documentation improvement.
