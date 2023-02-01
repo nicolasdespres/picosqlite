@@ -1101,8 +1101,8 @@ class NamedTableView(TableView):
         LOGGER.debug("restore_state %r", state)
         self.clear_all()
         self.previous_visible_item = state.visible_item
-        # TODO: better to extra the tree widget height and perform the same
-        #       computation as in `on_tree_configure`.
+        # TODO: better to extract the tree widget height and perform the
+        #       same computation as in `on_tree_configure`.
         self.max_window_size = state.end_window - state.begin_window
         self._update_inc_limit()
         self.fetch(state.begin_window, self.max_window_size)
