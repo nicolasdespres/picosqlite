@@ -2,7 +2,7 @@ Bug fix release
 
 Bug fix since v2.0.2:
 
-- Explicitly bind key accelerators on all platform. Now, accelerators works
+- Explicitly bind key accelerators on all platform. Now, accelerators work
   again on macOS with python 3.8+.
 
 Refactoring:
