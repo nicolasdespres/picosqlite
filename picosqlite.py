@@ -393,10 +393,12 @@ class SQLRunner(Task):
 
     def _push_result(self, result: SQLResult):
         self._results_q.put(result)
+        assert self.root is not None
         self.root.after_idle(self._process_result)
 
     @handler(result_type=Schema)
     def _handle_LoadSchema(self, request: Request.LoadSchema):
+        assert self._db is not None
         schema = {}
         with self._lock:
             for table_name in self.list_tables():
@@ -956,8 +958,11 @@ class NamedTableView(TableView):
 
     def get_visible_item(self):
         values = self.ys.get()
-        if len(values) != 2:  # In some rare cases, ys.get() may not
-                              # return two values...
+        # In some rare cases, ys.get() may not return two values. It
+        # depends on the scrolling speed and the state of the windows.
+        # I could not properly debug it, since it did not happened on my
+        # machine.
+        if len(values) != 2:
             return
         ys_begin, ys_end = values
         return self.row_from_fraction(ys_begin)
@@ -974,8 +979,11 @@ class NamedTableView(TableView):
             return
         # Log that we are inserting rows in the tree view.
         ys_values = self.ys.get()
-        if len(ys_values) == 2:  # In some rare cases, ys.get() may not
-                                 # return two values...
+        # In some rare cases, ys.get() may not return two values. It
+        # depends on the scrolling speed and the state of the windows.
+        # I could not properly debug it, since it did not happened on my
+        # machine.
+        if len(ys_values) == 2:
             ys_begin, ys_end = ys_values
             LOGGER.debug(
                 "inserting %d row(s) (asked %d) into %s from %d to %d; "
@@ -1766,6 +1774,7 @@ class Application(tk.Frame):
         self.run_query(self.console.get_current_query())
 
     def run_query(self, query):
+        assert self.sql is not None
         if len(query) == 0:
             return
         self.statusbar.show("Running query...")
