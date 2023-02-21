@@ -425,7 +425,7 @@ class SQLRunner(Task):
             return dict()
         query = request.query.strip()
         if query.startswith("."):
-            return self._handle_directive(shlex.split(query), request)
+            return self._handle_directive(parse_directive(query), request)
         else:
             cursor = self._execute(query)
             if cursor.description is None:  # No data to fetch.
@@ -496,6 +496,10 @@ class SQLRunner(Task):
         with self._lock:
             for table_name in self.list_tables():
                 self._db.execute(f"drop table {table_name};")
+
+
+def parse_directive(text):
+    return shlex.split(text.strip().rstrip(";"))
 
 
 def head(it, n=100):
