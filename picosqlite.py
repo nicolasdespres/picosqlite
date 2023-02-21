@@ -247,6 +247,8 @@ def handler(result_type=None):
                 error = e
             except sqlite3.Warning as w:
                 warning = w
+            except DirectiveError as e:
+                error = e
             except Exception:
                 internal_error = sys.exc_info()
             finally:
@@ -442,15 +444,21 @@ class SQLRunner(Task):
         try:
             handler = getattr(self, handler_name)
         except AttributeError:
-            raise RuntimeError(f"invalid directive: '{directive}'")
+            raise DirectiveNotFound(argv)
         else:
-            ret = handler(argv, request)
-            assert isinstance(ret, dict)
-            return ret
+            try:
+                ret = handler(argv, request)
+            except DirectiveError as e:
+                e.directive = directive
+                e.argv = argv
+                raise e
+            else:
+                assert isinstance(ret, dict)
+                return ret
 
     def _handle_directive_run(self, argv, request):
         if len(argv) != 2:
-            raise RuntimeError(f".run expects 1 argument, not {len(argv)}")
+            raise DirectiveError(f"expects 1 argument, not {len(argv)}")
         self._run_script(argv[1])
         return dict()
 
@@ -474,7 +482,7 @@ class SQLRunner(Task):
 
     def _handle_directive_dump(self, argv, request):
         if len(argv) != 2:
-            raise RuntimeError(f".dump expects 1 argument, not {len(argv)}")
+            raise DirectiveError(f"expects 1 argument, not {len(argv)}")
         self._dump(argv[1])
         return {}
 
@@ -487,8 +495,7 @@ class SQLRunner(Task):
     def _handle_directive_drop_all_tables(self, argv, request):
         argc = len(argv)
         if argc != 1:
-            raise RuntimeError(".drop_all_tables expects no argument, "
-                               f"not {argc}")
+            raise DirectiveError(f"expects no argument, not {argc}")
         self._drop_all_tables()
         return {}
 
@@ -500,6 +507,28 @@ class SQLRunner(Task):
 
 def parse_directive(text):
     return shlex.split(text.strip().rstrip(";"))
+
+
+class DirectiveError(Exception):
+
+    def __init__(self, message, argv=None, directive=None):
+        self.message = message
+        self.argv = argv
+        self.directive = directive
+        if self.directive is None and self.argv is not None:
+            self.directive = self.argv[0]
+
+    def __str__(self):
+        return f".{self.directive}: {self.message}"
+
+
+class DirectiveNotFound(DirectiveError):
+
+    def __init__(self, argv):
+        super().__init__("", argv=argv)
+
+    def __str__(self):
+        return f"invalid directive '{self.directive}'"
 
 
 def head(it, n=100):
