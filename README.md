@@ -12,13 +12,17 @@ Pico SQLite is a Tk-based command-line interface with a table and
 schema viewer.
 
 # Features
-- Tk-based GUI
+- Minimal Tk-based GUI
 - Only depends on Python 3.7+
 - Schema and table viewer with support for large tables
 - Query runner and result viewer
 - Script runner
 - Syntax highlighting
 - Active transaction indicator
+
+# Screenshot
+
+![Pico SQLite main window](Screenshot_mainwindow.png)
 
 # Installation
 
