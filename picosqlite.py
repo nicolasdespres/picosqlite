@@ -1291,10 +1291,6 @@ class Application(tk.Frame):
         self.console_menu.add_command(label=ConsMenu.CLEAR_CONSOLE,
                                       command=self.clear_console,
                                       state=tk.DISABLED)
-        self.console_menu.add_command(label=ConsMenu.DELETE_ROWS,
-                                      command=self.delete_rows_action,
-                                      accelerator="F9",
-                                      state=tk.DISABLED)
         self.console_menu.add_command(label=ConsMenu.DROP_ALL,
                                       command=self.drop_all_tables_action,
                                       state=tk.DISABLED)
@@ -1311,7 +1307,6 @@ class Application(tk.Frame):
         self.master.bind_all("<F3>", lambda _: self.run_query_action())
         self.master.bind_all("<F5>", lambda _: self.refresh_action())
         self.master.bind_all("<F7>", lambda _: self.clear_result_action())
-        self.master.bind_all("<F9>", lambda _: self.delete_rows_action())
         self.master.bind_all("<F12>", lambda _: self.interrupt_action())
 
     def init_layout(self):
@@ -1642,14 +1637,6 @@ class Application(tk.Frame):
             ViewMenu.CLOSE_RESULT,
             state=tk.NORMAL if is_result_tab else tk.DISABLED)
 
-    def get_primary_key(self, table_name):
-        pk = self.schema.get_table_primary_key(table_name)
-        if pk is None:
-            showerror(parent=self,
-                      title="Schema error",
-                      message=f"No primary key for table {table_name}.")
-        return pk
-
     def run_query_action(self):
         self.run_query(self.console.get_current_query())
 
@@ -1794,35 +1781,6 @@ class Application(tk.Frame):
 
     def create_task(self, task_class, *args, **kwargs):
         return task_class(*args, root=self.master, **kwargs)
-
-    def delete_rows_action(self):
-        if self.sql is None:
-            return False
-        selected_tab = self.tables.select()
-        if not selected_tab:
-            return False
-        table_view = self.tables.nametowidget(selected_tab)
-        if not isinstance(table_view, NamedTableView):
-            return False
-        selection = table_view.tree.selection()
-        pk = self.get_primary_key(table_view.table_name)
-        if pk is None:
-            return False
-        ans = askquestion(
-            parent=self,
-            title="Delete confirmation",
-            message="Are you sure you want to "
-            f"delete {len(selection)} rows from "
-            f"table '{table_view.table_name}'?")
-        if ans == 'no':
-            return False
-        ids = ", ".join(str(table_view.tree.item(i, 'values')[pk.cid])
-                        for i in selection)
-        query = \
-            f"DELETE FROM {table_view.table_name} " \
-            f"WHERE {pk.name} IN ({ids});"
-        self.run_query(query)
-        return True
 
     def dump_action(self):
         if self.sql is None:
