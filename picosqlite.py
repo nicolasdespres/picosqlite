@@ -989,8 +989,8 @@ class NamedTableView(TableView):
 
     def get_visible_item(self):
         values = self.ys.get()
-        if len(values) != 2:  # In some rare cases, ys.get() may not
-                              # return two values...
+        # In some rare cases, ys.get() may not return two values...
+        if len(values) != 2:
             return
         ys_begin, ys_end = values
         return self.row_from_fraction(ys_begin)
@@ -1007,8 +1007,8 @@ class NamedTableView(TableView):
             return
         # Log that we are inserting rows in the tree view.
         ys_values = self.ys.get()
-        if len(ys_values) == 2:  # In some rare cases, ys.get() may not
-                                 # return two values...
+        # In some rare cases, ys.get() may not return two values...
+        if len(ys_values) == 2:
             ys_begin, ys_end = ys_values
             LOGGER.debug(
                 "inserting %d row(s) (asked %d) into %s from %d to %d; "
