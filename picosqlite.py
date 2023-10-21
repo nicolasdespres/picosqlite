@@ -1231,50 +1231,13 @@ class Application(tk.Frame):
             self, run_query_command=self.run_query_action,
             command_log_maxline=self.COMMAND_LOG_HISTORY,
             runnable_state_update_callback=self._update_run_query_state)
-        self.init_detailed_view()
         self.bottom_nb.add(self.console, text="Console")
-        self.bottom_nb.add(self.detailed_view, text="Details")
         self.pane.add(self.tables)
         self.pane.add(self.bottom_nb)
 
     def init_statusbar(self):
         self.statusbar = StatusBar(self)
         self.statusbar.show(StatusMessage.READY_TO_OPEN)
-
-    def init_detailed_view(self):
-        self.detailed_view = ttk.PanedWindow(self, orient=tk.HORIZONTAL)
-        self.detailed_view._current_tree = None
-        self.detailed_view._current_item_id = None
-
-        self.columns_frame = tk.Frame(self.detailed_view)
-        self.columns_list = tk.StringVar(value=[])
-        self.columns_listbox = tk.Listbox(self.columns_frame,
-                                          selectmode='single',
-                                          listvariable=self.columns_list,
-                                          width=20)
-        self.columns_listbox.bind("<<ListboxSelect>>",
-                                  self.on_view_column_changed)
-        ys = ttk.Scrollbar(self.columns_frame, orient='vertical',
-                           command=self.columns_listbox.yview)
-        self.columns_listbox['yscrollcommand'] = ys.set
-        self.columns_listbox.grid(column=0, row=0, sticky="nswe")
-        ys.grid(column=1, row=0, sticky="nse")
-        self.columns_frame.rowconfigure(0, weight=1)
-        self.columns_frame.columnconfigure(0, weight=1)
-
-        self.show_frame = tk.Frame(self.detailed_view)
-        self.show_text = ScrolledText(self.show_frame, wrap="char")
-        self.show_text.grid(column=0, row=0, sticky="nswe")
-        self.update_bt = tk.Button(
-            self.show_frame, text="Update",
-            state=tk.DISABLED,
-            command=self.update_value_action)
-        self.update_bt.grid(column=0, row=1, sticky="nswe")
-        self.show_frame.rowconfigure(0, weight=1)
-        self.show_frame.columnconfigure(0, weight=1)
-
-        self.detailed_view.add(self.columns_frame, weight=1)
-        self.detailed_view.add(self.show_frame, weight=4)
 
     def init_menu(self):
         # Doc: https://tkdocs.com/tutorial/menus.html
@@ -1672,8 +1635,7 @@ class Application(tk.Frame):
         self.sql.put_request(Request.LoadSchema())
 
     def create_table_view(self, table_type, **kwargs):
-        return table_type(on_treeview_selected=self.on_view_row_changed,
-                          **kwargs)
+        return table_type(**kwargs)
 
     def on_view_table_changed(self, event):
         tables_notebook = event.widget
@@ -1684,82 +1646,6 @@ class Application(tk.Frame):
         self.view_menu.entryconfigure(
             ViewMenu.CLOSE_RESULT,
             state=tk.NORMAL if is_result_tab else tk.DISABLED)
-        table_view = tables_notebook.nametowidget(selected_tab)
-        if isinstance(table_view, SchemaFrame):
-            self.reset_shown_value()
-            return
-        self.update_shown_row(table_view.tree)
-
-    def on_view_row_changed(self, event):
-        tree = event.widget
-        self.update_shown_row(tree)
-
-    def reset_shown_value(self):
-        self.detailed_view._current_tree = None
-        self.detailed_view._current_item_id = None
-        self.columns_list.set([])
-        self.show_value('')
-        self.update_bt['state'] = tk.DISABLED
-
-    def update_shown_row(self, tree):
-        selection = tree.selection()
-        selected_count = len(selection)
-        if selected_count == 1:
-            item_id = selection[0]
-        else:
-            item_id = ''
-        self.console_menu.entryconfigure(
-            ConsMenu.DELETE_ROWS,
-            state=tk.NORMAL if selected_count >= 1 else tk.DISABLED)
-        if not item_id:
-            self.reset_shown_value()
-            tree._selected_column = 0
-            return
-        if self.detailed_view._current_tree is not tree:
-            self.columns_list.set(tree['columns'])
-            self.detailed_view._current_tree = tree
-            self.detailed_view._current_item_id = item_id
-            self.columns_listbox.selection_clear(0, tk.END)
-            self.columns_listbox.selection_set(tree._selected_column)
-            self.update_shown_column(tree, item_id)
-        if self.detailed_view._current_item_id != item_id:
-            self.detailed_view._current_item_id = item_id
-            self.update_shown_column(tree, item_id)
-
-    def on_view_column_changed(self, event):
-        tree = self.detailed_view._current_tree
-        if tree is None:
-            return
-        item_id = self.detailed_view._current_item_id
-        if item_id is None:
-            return
-        self.update_shown_column(tree, item_id)
-
-    def update_shown_column(self, tree, item_id):
-        selection = self.columns_listbox.curselection()
-        if not selection:
-            return
-        selected_item = selection[0]
-        tree._selected_column = selected_item
-        values = tree.item(item_id, option="values")
-        if not values:
-            return
-        value = values[selected_item]
-        self.show_value(value)
-        self.update_bt['state'] = tk.NORMAL
-
-    def show_value(self, value):
-        set_text_widget_content(self.show_text, value)
-
-    def update_value_action(self):
-        if self.sql is None:
-            return
-        if self.detailed_view._current_tree is None:
-            return
-        if self.detailed_view._current_item_id is None:
-            return
-        self.update_value(self.detailed_view._current_tree,
-                          self.detailed_view._current_item_id)
 
     def get_primary_key(self, table_name):
         pk = self.schema.get_table_primary_key(table_name)
@@ -1768,32 +1654,6 @@ class Application(tk.Frame):
                       title="Schema error",
                       message=f"No primary key for table {table_name}.")
         return pk
-
-    def update_value(self, tree, item_id):
-        table_name = tree._table_name
-        field = self.schema.get_field_by_id(table_name, tree._selected_column)
-        pk = self.get_primary_key(table_name)
-        if pk is None:
-            return False
-        values = tree.item(item_id, option="values")
-        pk_value = values[pk.cid]
-        new_value = self.show_text.get('1.0', 'end')
-        ans = askquestion(
-            parent=self,
-            title="Update confirmation",
-            message="Are you sure you want to change the value of "
-            f"field '{field.name}' of row with primary key "
-            f"{pk.name} = {pk_value} in table '{table_name}'?")
-        if ans == 'no':
-            return False
-        query = "UPDATE {} SET {} = {} WHERE {} = {};"\
-            .format(table_name,
-                    field.name,
-                    field.escape(new_value),
-                    pk.name,
-                    pk_value)
-        self.run_query(query)
-        return True
 
     def run_query_action(self):
         self.run_query(self.console.get_current_query())
