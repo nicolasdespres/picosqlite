@@ -14,7 +14,8 @@ and query result viewer.
 # Features
 - Minimal Tk-based GUI
 - Only depends on Python 3.7+
-- Schema and table viewer with support for large tables
+- Schema and table viewer with support for large tables thanks to rows
+  lazy loading.
 - Query runner and result viewer
 - Script runner
 - Syntax highlighting
