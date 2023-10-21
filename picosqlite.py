@@ -1544,9 +1544,7 @@ class Application(tk.Frame):
         self.tables.add(self.schema, text=self.schema.TAB_NAME)
         for table_name, fields in schema.items():
             self.schema.add_table(table_name, fields)
-            table_view = self.create_table_view(
-                NamedTableView,
-                fetcher=Fetcher(self, table_name))
+            table_view = NamedTableView(fetcher=Fetcher(self, table_name))
             self.table_views[table_name] = table_view
             self.tables.add(table_view, text=table_name)
             if table_name in self.table_view_saved_states:
@@ -1634,9 +1632,6 @@ class Application(tk.Frame):
         self.statusbar.show("Loading database schema...")
         self.sql.put_request(Request.LoadSchema())
 
-    def create_table_view(self, table_type, **kwargs):
-        return table_type(**kwargs)
-
     def on_view_table_changed(self, event):
         tables_notebook = event.widget
         selected_tab = tables_notebook.select()
@@ -1683,7 +1678,7 @@ class Application(tk.Frame):
             self.refresh_action()
         else:
             tab_name = f"*Result-{self.result_view_count}"
-            result_table = self.create_table_view(ResultTableView)
+            result_table = ResultTableView()
             result_table.append(result.rows,
                                 result.column_ids,
                                 result.column_names,
