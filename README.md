@@ -27,7 +27,12 @@ and query result viewer.
 
 # Installation
 
-Just copy (or symlink) the Python script and run it.
+Pico SQLite is a single standalone Python script that you can download
+here:
+- `latest <https://github.com/nicolasdespres/picosqlite/releases/download/v2.0.3/picosqlite.py>`_
+- `1.0.1 <https://github.com/nicolasdespres/picosqlite/releases/download/v1.0.1/picosqlite.py>`_
+
+Once downloaded, copy (or symlink) it where you want and run it.
 
 # License
 
