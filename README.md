@@ -29,14 +29,14 @@ and query result viewer.
 
 Pico SQLite is a single standalone Python script that you can download
 here:
-- `latest <https://github.com/nicolasdespres/picosqlite/releases/download/v2.0.3/picosqlite.py>`_
-- `1.0.1 <https://github.com/nicolasdespres/picosqlite/releases/download/v1.0.1/picosqlite.py>`_
+- [latest](https://github.com/nicolasdespres/picosqlite/releases/download/v2.0.3/picosqlite.py)
+- [1.0.1](https://github.com/nicolasdespres/picosqlite/releases/download/v1.0.1/picosqlite.py)
 
 Once downloaded, copy (or symlink) it where you want and run it.
 
 # License
 
 *Pico SQLite* is released under the term of the
-`Simplified BSD License <http://choosealicense.com/licenses/bsd-2-clause>`_.
+[Simplified BSD License](http://choosealicense.com/licenses/bsd-2-clause>).
 Copyright (c) 2021-today, Nicolas Desprès
 All rights reserved.
