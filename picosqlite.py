@@ -1220,20 +1220,21 @@ class Application(tk.Frame):
     def init_widget(self):
         self.init_statusbar()
         self.pane = ttk.Panedwindow(self, orient=tk.VERTICAL)
+
         # Tables notebook
-        self.tables = ttk.Notebook(self.pane, height=400)
+        self.tables = ttk.Notebook(self.pane, height=400,
+                                   padding=(0, 0, 0, 0))
         self.tables.bind("<<NotebookTabChanged>>", self.on_view_table_changed)
         self.schema = SchemaFrame(master=self)
 
-        # Bottom notebook
-        self.bottom_nb = ttk.Notebook(self.pane)
+        # Console
         self.console = Console(
             self, run_query_command=self.run_query_action,
             command_log_maxline=self.COMMAND_LOG_HISTORY,
             runnable_state_update_callback=self._update_run_query_state)
-        self.bottom_nb.add(self.console, text="Console")
+
         self.pane.add(self.tables)
-        self.pane.add(self.bottom_nb)
+        self.pane.add(self.console)
 
     def init_statusbar(self):
         self.statusbar = StatusBar(self)
