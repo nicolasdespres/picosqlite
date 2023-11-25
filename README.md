@@ -22,7 +22,7 @@ and query result viewer.
 
 # Screenshot
 
-![Pico SQLite main window](Screenshot_mainwindow.png)
+![Pico SQLite main window](doc/mainwindow_explained.png)
 
 # Installation
 
