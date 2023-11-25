@@ -1,8 +1,7 @@
 Pico SQLite
 ------------
 
-A very tiny (pico?) sqlite viewer designed for educational
-purpose.
+Tiny (pico?) sqlite viewer designed for education.
 
 The sqlite3 command-line interface is too low-level for beginners
 whereas most viewers available are too features full and may be
