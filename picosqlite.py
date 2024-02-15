@@ -1548,6 +1548,7 @@ class Application(tk.Frame):
             handler(result)
 
     def on_sql_OpenDB(self, result: OpenDB):
+        assert self.sql is not None
         if result.has_error:
             self.show_result_error(result, "Database opening")
             self.sql.join()  # Wait for the thread to finish.
@@ -1593,6 +1594,7 @@ class Application(tk.Frame):
         """Handle rows fetched from table."""
         table_view = self.table_views[result.request.table_name]
         self.log_error_and_warning(result)
+        assert self.sql is not None
         last_mtime = self.sql.last_modification_time
         if last_mtime is None:
             showinfo(
@@ -1679,6 +1681,7 @@ class Application(tk.Frame):
             return
         self.statusbar.show("Running query...")
         self.statusbar.start(mode="indeterminate")
+        assert self.sql is not None
         self.sql.put_request(Request.RunQuery(query=query))
         self.console.run_query_bt.configure(
             text="Stop", command=self.interrupt_action)
@@ -1715,10 +1718,12 @@ class Application(tk.Frame):
             footer_parts.append(f"(see <{tab_name}>)")
         self.log(" ".join(footer_parts))
         self.disable_sql_execution_state()
+        assert self.sql is not None
         self.statusbar.set_in_transaction(self.sql.in_transaction)
 
     def interrupt_action(self):
         self.statusbar.show("Interrupting...")
+        assert self.sql is not None
         if self.sql.force_interrupt():
             self.statusbar.show(StatusMessage.READY)
         else:
