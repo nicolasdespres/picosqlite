@@ -951,7 +951,6 @@ class TableView(tk.Frame):
     def __init__(self, master=None, on_treeview_selected=None):
         super().__init__(master=master)
         self.tree = ttk.Treeview(self, show="headings", selectmode='browse')
-        self.tree._selected_column = 0
         # **Scrollbars**
         self.ys = ttk.Scrollbar(self, orient='vertical',
                                 command=self.tree.yview)
@@ -992,7 +991,6 @@ class NamedTableView(TableView):
     def __init__(self, fetcher=None, **kwargs):
         super().__init__(**kwargs)
         self.fetcher = fetcher
-        self.tree._table_name = self.table_name
         self.tree['selectmode'] = 'extended'
         self.tree['yscrollcommand'] = self.lazy_load
         self.tree.bind("<Configure>", self.on_tree_configure)
