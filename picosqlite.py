@@ -668,10 +668,6 @@ class SchemaFrame(tk.Frame):
         self._format_row = RowFormatter(self.COLUMNS, self.COLUMNS)
         self.tables = defaultdict(dict)
 
-    @property
-    def _db(self):
-        return self.master.db
-
     def add_table(self, table_name, fields):
         table_row = (table_name, '', '', '', '')
         self._tree.insert('', 'end', table_name, values=table_row)
