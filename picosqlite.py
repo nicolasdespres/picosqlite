@@ -1278,7 +1278,7 @@ class Application(tk.Frame):
         self.master.option_add('*tearOff', False)
         self.menubar = tk.Menu(self)
         # Set it as the menu of this app top-level window
-        self.master.configure(menu=self.menubar)
+        self.master.configure(menu=self.menubar)   # type: ignore
         # **Database menu**
         self.db_menu = tk.Menu(self.menubar)
         self.menubar.add_cascade(label="Database", menu=self.db_menu)
@@ -1359,7 +1359,7 @@ class Application(tk.Frame):
         self.sql = None
         self.table_views = {}
         self.table_view_saved_states = {}
-        self.master.title(self.NAME)
+        self.master.title(self.NAME)  # type: ignore
         self.result_view_count = 0
         self.selected_table_index = None
         self.last_refresed_at = None
@@ -1497,7 +1497,7 @@ class Application(tk.Frame):
     def close_db(self):
         if not self.safely_close_db():
             return
-        self.master.title(self.NAME)
+        self.master.title(self.NAME)  # type: ignore
         self.console.disable()
         self.db_menu.entryconfigure(DBMenu.CLOSE, state=tk.DISABLED)
         self.db_menu.entryconfigure(DBMenu.DUMP, state=tk.DISABLED)
@@ -1554,7 +1554,7 @@ class Application(tk.Frame):
             self.sql.join()  # Wait for the thread to finish.
             self.sql = None
         else:
-            self.master.title(f"{self.NAME} - {self.sql.db_filename}")
+            self.master.title(f"{self.NAME} - {self.sql.db_filename}")  # type: ignore
             self.log(f"-- Database successfully opened in {result.duration}")
             self.last_refreshed_at = self.sql.last_modification_time
             LOGGER.debug("load table after database opening")
@@ -2099,7 +2099,7 @@ class LongTextDialog(tk.Toplevel):
         self.main_frame.rowconfigure(1, weight=1)
 
         self.protocol("WM_DELETE_WINDOW", self.close_action)
-        self.bind("<Escape>", self.close_action, True)
+        self.bind("<Escape>", self.close_action, True)  # type: ignore
 
     def copy_action(self):
         self.clipboard_clear()
