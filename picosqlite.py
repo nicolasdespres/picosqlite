@@ -796,10 +796,11 @@ class ColorSyntax:
 class Console(ttk.Panedwindow):
 
     def __init__(self, master=None, run_query_command=None,
-                 command_log_maxline=1000,
+                 command_log_maxlines=1000,
                  runnable_state_update_callback=None):
         super().__init__(master, orient=tk.VERTICAL)
         self._runnable_state_update_callback = runnable_state_update_callback
+        self.command_log_maxlines = command_log_maxlines
 
         # **Query**
         self.query_frame = tk.Frame()
@@ -819,7 +820,6 @@ class Console(ttk.Panedwindow):
         # **Command log**
         self.cmdlog_text = ScrolledText(wrap="word", background="lightgray",
                                         foreground="black", height=100)
-        self.cmdlog_text.MAXLINES = command_log_maxline
         self.cmdlog_text.configure(state=tk.DISABLED)
         self.cmdlog_text.rowconfigure(0, weight=1)
         self.cmdlog_text.columnconfigure(0, weight=1)
@@ -852,7 +852,9 @@ class Console(ttk.Panedwindow):
         if not msg.endswith("\n"):
             msg += "\n"
         start_index = self.cmdlog_text.index("end -1c")
-        write_to_tk_text_log(self.cmdlog_text, msg, tags=tags)
+        write_to_tk_text_log(self.cmdlog_text, msg,
+                             maxlines=self.command_log_maxlines,
+                             tags=tags)
         if not tags:
             self.color_syntax.highlight(self.cmdlog_text, start_index, "end")
         self.cmdlog_text.see("end")
@@ -1259,7 +1261,7 @@ class Application(tk.Frame):
         # Console
         self.console = Console(
             self, run_query_command=self.run_query_action,
-            command_log_maxline=self.COMMAND_LOG_HISTORY,
+            command_log_maxlines=self.COMMAND_LOG_HISTORY,
             runnable_state_update_callback=self._update_run_query_state)
 
         self.pane.add(self.tables)
@@ -1864,11 +1866,11 @@ class Application(tk.Frame):
         self.run_query(".drop_all_tables")
 
 
-def write_to_tk_text_log(log, msg, tags=()):
+def write_to_tk_text_log(log, msg, maxlines=Application.COMMAND_LOG_HISTORY, tags=()):
     numlines = int(log.index('end - 1 line').split('.')[0])
     log['state'] = tk.NORMAL
-    if numlines >= log.MAXLINES:
-        log.delete('1.0', f'{log.MAXLINES - numlines}.0')
+    if numlines >= maxlines:
+        log.delete('1.0', f'{maxlines - numlines}.0')
     # if log.index('end-1c') != '1.0':
     #     log.insert('end', '\n')
     log.insert('end', msg, tags)
