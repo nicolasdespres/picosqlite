@@ -2119,14 +2119,14 @@ def get_data_folder():
         raise RuntimeError("no data folder for platform '{sys.platform}'")
 
 
-def get_log_time():
+def mk_log_time():
     return strftime("%Y-%m-%d--%H-%M-%S")
 
 
-def get_log_filename():
+def mk_log_filename():
     data_folder = get_data_folder()
     log_dir = data_folder/"Logs"
-    filename = get_log_time() + " PicoSQLite-Log.txt"
+    filename = mk_log_time() + " PicoSQLite-Log.txt"
     return log_dir/filename
 
 
@@ -2153,7 +2153,7 @@ def init_logger(logger, level=logging.INFO):
         console_handler.setLevel(level)
 
     global LOG_FILENAME
-    LOG_FILENAME = get_log_filename()
+    LOG_FILENAME = mk_log_filename()
     mkdir_p(os.path.dirname(LOG_FILENAME))
     file_handler = logging.FileHandler(LOG_FILENAME,
                                        mode="w", encoding="utf-8")
@@ -2169,7 +2169,7 @@ def init_logger(logger, level=logging.INFO):
     logger.info("Starting")
     logger.info("PicoSQLite version: %s", __version__)
     logger.info("Python version: %s", sys.version)
-    logger.info("Started at: %s", get_log_time())
+    logger.info("Started at: %s", mk_log_time())
 
 
 def respawn_without_console():
