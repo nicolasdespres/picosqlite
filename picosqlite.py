@@ -2019,7 +2019,12 @@ def report_exception(etype, value, tb,
                      title: str = "Pico SQLite's internal error"):
     LOGGER.exception(title)
     error_lines = traceback.format_exception(etype, value, tb)
-    LongTextDialog(title, "".join(error_lines))
+    header = [
+        f"PicoSQLite version: {__version__}\n",
+        f"Python version: {sys.version}\n",
+        '-------------------\n',
+    ]
+    LongTextDialog(title, "".join(header + error_lines))
 
 
 class LongTextDialog(tk.Toplevel):
