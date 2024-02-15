@@ -66,6 +66,7 @@ from typing import Dict
 from typing import List
 from typing import Tuple
 from typing import Union
+from typing import Type
 import functools
 import traceback
 from collections import defaultdict
@@ -622,7 +623,7 @@ def escape_sqlite_str(text):
 class Field:
     cid: int
     name: str
-    vtype: Union[str, None, int, float]
+    vtype: Union[Type[Union[str, int, float, bytes]], None]
     notnull: bool
     default_value: Any
     primary_key: bool
