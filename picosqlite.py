@@ -990,6 +990,7 @@ class NamedTableView(TableView):
 
     def __init__(self, fetcher=None, **kwargs):
         super().__init__(**kwargs)
+        assert fetcher is not None
         self.fetcher = fetcher
         self.tree['selectmode'] = 'extended'
         self.tree['yscrollcommand'] = self.lazy_load
