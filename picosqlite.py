@@ -243,6 +243,7 @@ class Task(threading.Thread):
 
     def __init__(self, root=None, **thread_kwargs):
         super().__init__(**thread_kwargs)
+        assert root is not None
         self.root = root
 
 
@@ -424,6 +425,7 @@ class SQLRunner(Task):
 
     @handler(result_type=Schema)
     def _handle_LoadSchema(self, request: Request.LoadSchema):
+        assert self._db is not None
         schema = {}
         with self._lock:
             for table_name in self.list_tables():
@@ -492,10 +494,12 @@ class SQLRunner(Task):
             self._executescript(stream.read())
 
     def _execute(self, *args, **kwargs):
+        assert self._db is not None
         with self._lock:
             return self._db.execute(*args, **kwargs)
 
     def _executescript(self, *args, **kwargs):
+        assert self._db is not None
         with self._lock:
             return self._db.executescript(*args, **kwargs)
 
@@ -512,6 +516,7 @@ class SQLRunner(Task):
         return {}
 
     def _dump(self, filename):
+        assert self._db is not None
         with open(filename, mode="w", encoding="utf-8") as stream, \
              self._lock:
             for line in self._db.iterdump():
@@ -525,6 +530,7 @@ class SQLRunner(Task):
         return {}
 
     def _drop_all_tables(self):
+        assert self._db is not None
         with self._lock:
             for table_name in self.list_tables():
                 self._db.execute(f"drop table {table_name};")
@@ -803,6 +809,7 @@ class Console(ttk.Panedwindow):
         self.query_text = ScrolledText(self.query_frame, wrap="word",
                                        background="white", foreground="black")
         self.query_text.bind("<<Modified>>", self.on_modified_query)
+        assert run_query_command is not None
         self.run_query_bt = tk.Button(self.query_frame, text="Run",
                                       command=run_query_command)
         self.disable()
