@@ -2015,16 +2015,27 @@ def _on_tk_exception(etype, value, tb):
     report_exception(etype, value, tb)
 
 
+def read_all_lines(filename):
+    with open(filename) as f:
+        return list(f)
+
+
 def report_exception(etype, value, tb,
                      title: str = "Pico SQLite's internal error"):
     LOGGER.exception(title)
     error_lines = traceback.format_exception(etype, value, tb)
+    separator = '-------------------\n'
     header = [
         f"PicoSQLite version: {__version__}\n",
         f"Python version: {sys.version}\n",
-        '-------------------\n',
+        separator,
     ]
-    LongTextDialog(title, "".join(header + error_lines))
+    log_content = read_all_lines(LOG_FILENAME)
+    LOG_LIMIT = 4096
+    if len(log_content) > LOG_LIMIT:
+        log_content = log_content[:LOG_LIMIT] + ['--- truncated long log ---']
+    log_content.insert(0, separator)
+    LongTextDialog(title, "".join(header + error_lines + log_content))
 
 
 class LongTextDialog(tk.Toplevel):
@@ -2130,6 +2141,7 @@ def mkdir_p(path):
     except FileExistsError:
         pass
 
+LOG_FILENAME = None
 
 def init_logger(logger, level=logging.INFO):
     if sys.stdout is None:
@@ -2140,9 +2152,10 @@ def init_logger(logger, level=logging.INFO):
             "%(name)s: %(levelname)s: %(message)s"))
         console_handler.setLevel(level)
 
-    log_filename = get_log_filename()
-    mkdir_p(os.path.dirname(log_filename))
-    file_handler = logging.FileHandler(log_filename,
+    global LOG_FILENAME
+    LOG_FILENAME = get_log_filename()
+    mkdir_p(os.path.dirname(LOG_FILENAME))
+    file_handler = logging.FileHandler(LOG_FILENAME,
                                        mode="w", encoding="utf-8")
 
     file_handler.setFormatter(logging.Formatter(
