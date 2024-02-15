@@ -982,7 +982,7 @@ class NamedTableView(TableView):
 
         begin_window: int
         end_window: int
-        visible_item: int
+        visible_item: Optional[int]
 
         @property
         def is_empty(self):
@@ -1027,6 +1027,7 @@ class NamedTableView(TableView):
 
     def insert(self, rows, column_ids, column_names, offset, limit):
         assert len(rows) <= limit
+        assert self.max_window_size is not None  # Should have been configured
         first_row = offset
         last_row = offset + len(rows)  # excluded
         # If the table is empty or if the requested offset is over the last
@@ -1125,6 +1126,7 @@ class NamedTableView(TableView):
 
     def lazy_load(self, begin_index, end_index):
         LOGGER.debug(f"lazy_load({begin_index}, {end_index})")
+        assert self.max_window_size is not None  # Should have been configured
         limit = self.max_window_size - self.nb_view_items
         if limit < self.inc_limit:
             limit = self.inc_limit
@@ -1147,6 +1149,7 @@ class NamedTableView(TableView):
         self._update_inc_limit()
 
     def _update_inc_limit(self):
+        assert self.max_window_size is not None  # Should have been configured
         self.inc_limit = self.max_window_size // self.BUFFER_SIZE_FACTOR
 
     def fetch(self, offset, limit):
