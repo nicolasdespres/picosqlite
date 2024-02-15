@@ -1275,7 +1275,7 @@ class Application(tk.Frame):
         self.master.option_add('*tearOff', False)
         self.menubar = tk.Menu(self)
         # Set it as the menu of this app top-level window
-        self.master.config(menu=self.menubar)
+        self.master.configure(menu=self.menubar)
         # **Database menu**
         self.db_menu = tk.Menu(self.menubar)
         self.menubar.add_cascade(label="Database", menu=self.db_menu)
