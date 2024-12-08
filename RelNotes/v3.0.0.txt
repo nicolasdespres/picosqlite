@@ -1,0 +1,19 @@
+Features drop release.
+
+User visible changes:
+
+- Remove detailed view: this view goes in the opposite direction of the project's
+  minimal philosophy to force student to use SQL instruction instead of clicking
+
+- Remove 'delete rows' menu item for the same reason.
+
+- Include log content in internal error window.
+
+Bug fix since v2.0.3:
+
+- More robust vtype value handling.
+
+Refactoring:
+
+- Introduce a specific error hierarchy for directive error and use it instead
+  of RuntimeError.
