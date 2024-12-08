@@ -13,6 +13,8 @@ Bug fix since v2.0.3:
 
 - More robust vtype value handling.
 
+- PicoSQLite and Python version are included in the log.
+
 Refactoring:
 
 - Introduce a specific error hierarchy for directive error and use it instead
