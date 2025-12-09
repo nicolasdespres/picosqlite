@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- encoding: utf-8 -*-
 #
-# Copyright (c) 2021-today, Nicolas Desprès
+# Copyright (c) 2021-2025, Nicolas Desprès
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -926,6 +926,7 @@ class StatusBar(tk.Frame):
         if self._temporary_text is not None:
             self.after_cancel(self._temporary_text)
             self._temporary_text = None
+
 
         def remove():
             self.label['text'] = self._text
